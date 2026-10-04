@@ -1,0 +1,5666 @@
+---
+title: "BTRY 4100"
+author: "Winson & Daniel"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#SHINY & DATA CLEANING
+#Load Library
+library(ggplot2)
+library(dplyr)
+
+setwd("C:/Users/user/Documents/CORNELL MPH/4th Semester/Multivariate analysis")
+#Importing dataset 
+listings_Boston <- read.csv("listings_Boston.csv", header = TRUE)
+#Shows the first few elements
+head(listings_Boston)
+#Number of rows in dataset
+nrow(listings_Boston)
+listings_Boston[listings_Boston$price > 10000, ]
+```
+
+
+```{r}
+#Filters out empty prices 
+new_data <- listings_Boston[listings_Boston$price!= "", ]
+head(new_data)
+new_data[new_data$price > 10000, ]
+new_data$city <- "Boston"
+
+#Filters out symbols so that price can be a numeric
+new_data$price <- gsub("[\\$, ]", "", new_data$price)
+new_data$price <- as.numeric(new_data$price)
+tax_rate <- 0.1525
+new_data$price_with_tax <- new_data$price * (1 + tax_rate)
+new_data
+```
+
+
+```{r}
+#Makes the amenities a list to work with
+new_data$amenities <- gsub("\\[|\\]|\"", "", new_data$amenities)
+new_data$amenities <- strsplit(new_data$amenities, ", ")
+head(new_data)
+#Checks to see in amenities which if the amenities are missing
+total_empty <- sum(sapply(new_data$amenities, length) == 0)
+total_empty
+#Filters out the ones if the amenities are missing
+new_data <- new_data %>%
+  filter(sapply(amenities, length) > 0)
+new_data <- subset(new_data, price <= 1000)
+new_data <- subset(new_data, minimum_nights < 120)
+#Checks the outliers 
+boston_outliers <- new_data[new_data$price >= 750 & new_data$price <= 1000, ]
+
+#Calculates the price per guest for Boston 
+new_data$price_per_guest <- new_data$price / new_data$accommodates
+new_data$price_per_guest <- as.numeric(new_data$price_per_guest)
+```
+
+```{r}
+raw_boston_amenities <- new_data$amenities
+
+raw_unique <- unique(raw_boston_amenities)
+
+cat("Total raw unique amenity strings:", length(raw_unique), "\n\n")
+
+print(raw_unique)
+
+raw_boston_amenities <- new_data$amenities
+
+raw_unique <- unique(raw_boston_amenities)
+
+cat("=====================================\n")
+cat("BOSTON RAW AMENITY STRINGS (NO CLEANING)\n")
+cat("=====================================\n")
+cat("Total raw unique amenity strings:", length(raw_unique), "\n\n")
+
+print(raw_unique)
+```
+
+```{r}
+listings_Jersey <- read.csv("listings_Jersey.csv", header= TRUE)
+#Filters out empty prices 
+Jersey_data <- listings_Jersey[listings_Jersey$price!= "", ]
+head(Jersey_data)
+#Filters out symbols so that price can be a numeric
+Jersey_data$price <- gsub("[\\$, ]", "", Jersey_data$price)
+Jersey_data$price <- as.numeric(Jersey_data$price)
+tax_rate <- 0.09625
+Jersey_data$price_with_tax <- Jersey_data$price * (1 + tax_rate)
+```
+
+
+```{r}
+Jersey_data$amenities <- gsub("\\[|\\]|\"", "", Jersey_data$amenities)
+Jersey_data$amenities <- strsplit(Jersey_data$amenities, ", ")
+head(Jersey_data)
+#Checks to see in amenities which if the amenities are missing
+total_gone <- sum(sapply(Jersey_data$amenities, length) == 0)
+total_gone
+#Filters out the ones if the amenities are missing
+Jersey_data <- Jersey_data %>%
+  filter(sapply(amenities, length) > 0)
+Jersey_data <- subset(Jersey_data, price <= 1000)
+Jersey_data <- subset(Jersey_data, minimum_nights < 120)
+
+# Checks the price per guest for Jersey City
+Jersey_data$price_per_guest <- Jersey_data$price / Jersey_data$accommodates
+Jersey_data$price_per_guest <- as.numeric(Jersey_data$price_per_guest)
+
+```
+
+```{r}
+
+# Convert each amenity list back into one string
+raw_jersey_amenities <- sapply(Jersey_data$amenities, paste, collapse = ", ")
+
+# Unique raw strings
+raw_unique_jersey <- unique(raw_jersey_amenities)
+
+cat("=====================================\n")
+cat("JERSEY - RAW AMENITY STRINGS\n")
+cat("=====================================\n")
+cat("Total raw unique amenity strings:", length(raw_unique_jersey), "\n\n")
+
+print(raw_unique_jersey)
+
+raw_counts_jersey <- sort(table(raw_jersey_amenities), decreasing = TRUE)
+
+cat("\nTop 20 most frequent raw amenity strings:\n\n")
+print(head(raw_counts_jersey, 20))
+
+raw_items_jersey <- unlist(Jersey_data$amenities)
+
+raw_items_jersey <- raw_items_jersey[raw_items_jersey != ""]
+
+# Unique raw individual amenities
+raw_items_unique_jersey <- sort(unique(raw_items_jersey))
+
+cat("\n=====================================\n")
+cat("JERSEY - RAW INDIVIDUAL AMENITIES\n")
+cat("=====================================\n")
+cat("Total raw individual amenities:", length(raw_items_unique_jersey), "\n\n")
+
+print(raw_items_unique_jersey)
+
+raw_item_counts_jersey <- sort(table(raw_items_jersey), decreasing = TRUE)
+
+cat("\nTop 20 most frequent raw individual amenities:\n\n")
+print(head(raw_item_counts_jersey, 20))
+
+raw_df_jersey <- data.frame(Raw_Amenities = raw_unique_jersey)
+raw_items_df_jersey <- data.frame(Raw_Items = raw_items_unique_jersey)
+
+head(raw_df_jersey)
+head(raw_items_df_jersey)
+```
+
+
+```{r}
+raw_boston_amenities <- sapply(new_data$amenities, paste, collapse = ", ")
+
+# Unique raw strings
+raw_unique_boston <- unique(raw_boston_amenities)
+
+cat("=====================================\n")
+cat("BOSTON - RAW AMENITY STRINGS\n")
+cat("=====================================\n")
+cat("Total raw unique amenity strings:", length(raw_unique_boston), "\n\n")
+
+print(raw_unique_boston)
+
+raw_counts_boston <- sort(table(raw_boston_amenities), decreasing = TRUE)
+
+cat("\nTop 20 most frequent raw amenity strings:\n\n")
+print(head(raw_counts_boston, 20))
+
+
+raw_items_boston <- unlist(new_data$amenities)
+
+# Remove empty strings if any
+raw_items_boston <- raw_items_boston[raw_items_boston != ""]
+
+raw_items_unique_boston <- sort(unique(raw_items_boston))
+
+cat("\n=====================================\n")
+cat("BOSTON - RAW INDIVIDUAL AMENITIES\n")
+cat("=====================================\n")
+cat("Total raw individual amenities:", length(raw_items_unique_boston), "\n\n")
+
+print(raw_items_unique_boston)
+
+# Frequency of raw individual amenities
+raw_item_counts_boston <- sort(table(raw_items_boston), decreasing = TRUE)
+
+cat("\nTop 20 most frequent raw individual amenities:\n\n")
+print(head(raw_item_counts_boston, 20))
+
+
+raw_df_boston <- data.frame(Raw_Amenities = raw_unique_boston)
+raw_items_df_boston <- data.frame(Raw_Items = raw_items_unique_boston)
+
+head(raw_df_boston)
+head(raw_items_df_boston)
+
+```
+
+
+```{r}
+boston_stats <- c(
+  mean = mean(new_data$price),
+  median = median(new_data$price),
+  sd = sd(new_data$price),
+  min = min(new_data$price),
+  max = max(new_data$price),
+  Q1 = quantile(new_data$price, 0.25),
+  Q3 = quantile(new_data$price, 0.75)
+)
+
+# Jersey City stats
+jersey_stats <- c(
+  mean = mean(Jersey_data$price),
+  median = median(Jersey_data$price),
+  sd = sd(Jersey_data$price),
+  min = min(Jersey_data$price),
+  max = max(Jersey_data$price),
+  Q1 = quantile(Jersey_data$price, 0.25),
+  Q3 = quantile(Jersey_data$price, 0.75)
+)
+stats_table <- data.frame(
+  Statistic = c("Mean", "Median", "SD", "Min", "Q1", "Q3", "Max"),
+  Boston = boston_stats,
+  Jersey_City = jersey_stats
+)
+knitr::kable(
+  stats_table,
+  caption = "Table 1: Summary Statistics of Filtered Airbnb Listing Prices by City"
+)
+ggplot() +
+  geom_boxplot(data = new_data, aes(x = "Boston", y = price), fill = "skyblue") +
+  geom_boxplot(data = Jersey_data, aes(x = "Jersey City", y = price), fill = "orange") +
+  theme_minimal()
+
+# Set up side-by-side plotting
+par(mfrow = c(1, 2))  
+
+# Histogram for Boston
+hist(new_data$accommodates,
+     breaks = seq(min(new_data$accommodates)-0.5, max(new_data$accommodates)+0.5, by=1),
+     main = "Boston Airbnb Listings",
+     xlab = "Number of Guests Accommodated",
+     ylab = "Count of Listings",
+     col = "skyblue",
+     border = "black")
+
+# Histogram for Jersey City
+hist(Jersey_data$accommodates,
+     breaks = seq(min(Jersey_data$accommodates)-0.5, max(Jersey_data$accommodates)+0.5, by=1),
+     main = "Jersey City Airbnb Listings",
+     xlab = "Number of Guests Accommodated",
+     ylab = "Count of Listings",
+     col = "orange",
+     border = "black")
+
+# Reset plotting layout to default
+par(mfrow = c(1, 1))
+
+
+```
+
+```{r}
+
+library(dplyr)
+
+new_data$amenities <- gsub("\\[|\\]|\"", "", new_data$amenities)
+new_data$amenities <- strsplit(new_data$amenities, ", ")
+
+clean_amenity <- function(x) {
+  x <- tolower(x)
+  x <- trimws(x)
+
+  x <- gsub("\\\\u2013|–|—", " ", x)
+  x <- gsub("\\\\u2019|u2019|u00e9", " ", x)
+  x <- gsub("&", "and", x)
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  remove_exact <- c(
+    "2 5 years old", "5 10 years old", "and 10 years old", "and 5 10 years old",
+    "and dresser", "and wardrobe", "every day", "every day available",
+    "7 days a week available", "open 24 hours", "open specific hours",
+    "monday to friday available", "it varies", "small", "gas",
+    "under the counter", "bosch", "integra", "martin logan", "toshiba",
+    "disney", "coffee", "dove", "heated", "and", "to"
+  )
+
+  if (x %in% remove_exact) return(NA_character_)
+
+  x <- gsub("\\balways at the listing\\b", "", x)
+  x <- gsub("\\bavailable upon request\\b", "", x)
+  x <- gsub("\\bdepending on availability\\b", "", x)
+  x <- gsub("\\bavailable all year\\b", "", x)
+  x <- gsub("\\bavailable seasonally\\b", "", x)
+  x <- gsub("\\bon property\\b", "", x)
+  x <- gsub("\\bnearby\\b", " nearby", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("body wash|shower gel", x)) return("body wash")
+  if (grepl("soap", x)) return("body soap")
+  if (grepl("toothpaste", x)) return(NA_character_)
+
+  if (grepl("tv|television|roku|chromecast|premium cable|standard cable|amazon prime video|netflix|hulu|hbo max", x)) return("tv")
+  if (grepl("dvd player", x)) return("dvd player")
+  if (grepl("board games|arcade games|life size games", x)) return("games")
+  if (grepl("game console|ps3|ps4|xbox|nintendo switch", x)) return("game console")
+  if (grepl("piano", x)) return("piano")
+  if (grepl("record player", x)) return("record player")
+  if (grepl("sound system|speaker|alexa|google home|google assistant|bluetooth", x)) return("sound system")
+
+  if (grepl("kitchen", x)) return("kitchen")
+  if (grepl("microwave", x)) return("microwave")
+  if (grepl("oven", x)) return("oven")
+  if (grepl("stove|burners", x)) return("stove")
+  if (grepl("refrigerator|fridge", x)) return("refrigerator")
+  if (grepl("freezer", x)) return("freezer")
+  if (grepl("dishwasher", x)) return("dishwasher")
+  if (grepl("coffee maker|french press|pour over coffee|nespresso", x)) return("coffee maker")
+  if (grepl("rice maker", x)) return("rice maker")
+  if (grepl("bread maker", x)) return("bread maker")
+  if (grepl("blender", x)) return("blender")
+  if (grepl("toaster", x)) return("toaster")
+  if (grepl("baking sheet", x)) return("baking sheet")
+  if (grepl("barbecue utensils", x)) return("bbq utensils")
+  if (grepl("cooking basics", x)) return("cooking basics")
+  if (grepl("dishes and silverware", x)) return("dishes and silverware")
+  if (grepl("wine glasses", x)) return("wine glasses")
+  if (grepl("dining table", x)) return("dining table")
+  if (grepl("breakfast", x)) return("breakfast")
+
+  if (grepl("crib", x)) return("crib")
+  if (grepl("high chair|booster seat", x)) return("high chair")
+  if (grepl("baby bath", x)) return("baby bath")
+  if (grepl("baby monitor", x)) return("baby monitor")
+  if (grepl("changing table", x)) return("changing table")
+  if (grepl("children s books and toys|books and reading material", x)) return("books and toys")
+  if (grepl("children s bikes|bikes", x)) return("bikes")
+  if (grepl("children s dinnerware", x)) return("children's dinnerware")
+  if (grepl("baby safety gates|outlet covers|table corner guards|window guards", x)) return("child safety features")
+  if (grepl("children s playroom|outdoor playground", x)) return("play area")
+  if (grepl("babysitter recommendations", x)) return("babysitter recommendations")
+
+  if (grepl("bathtub|bidet", x)) return("bathtub/bidet")
+  if (grepl("hair dryer", x)) return("hair dryer")
+  if (grepl("shampoo", x)) return("shampoo")
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("hot water", x)) return("hot water")
+  if (grepl("bed linens", x)) return("bed linens")
+  if (grepl("extra pillows and blankets", x)) return("extra pillows and blankets")
+  if (grepl("hangers", x)) return("hangers")
+  if (grepl("closet|wardrobe|clothing storage", x)) return("clothing storage")
+  if (grepl("room darkening shades", x)) return("room darkening shades")
+  if (grepl("mosquito net", x)) return("mosquito net")
+  if (grepl("lock on bedroom door", x)) return("lock on bedroom door")
+  if (grepl("private living room", x)) return("private living room")
+
+  if (grepl("air conditioning|ceiling fan|portable fans", x)) return("air conditioning/fan")
+  if (grepl("heating|portable heater", x)) return("heating")
+  if (grepl("fireplace", x)) return("fireplace")
+
+  if (grepl("washer", x)) return("washer")
+  if (grepl("dryer", x)) return("dryer")
+  if (grepl("laundromat nearby", x)) return("laundromat nearby")
+  if (grepl("cleaning products", x)) return("cleaning products")
+  if (grepl("cleaning available during stay|housekeeping", x)) return("housekeeping")
+
+  if (grepl("wifi|ethernet", x)) return("internet")
+  if (grepl("self check in|lockbox|smart lock", x)) return("self check-in")
+  if (grepl("private entrance", x)) return("private entrance")
+  if (grepl("elevator", x)) return("elevator")
+  if (grepl("single level home", x)) return("single level home")
+  if (grepl("building staff|host greets you", x)) return("host service")
+  if (grepl("carbon monoxide alarm", x)) return("carbon monoxide alarm")
+  if (grepl("smoke alarm", x)) return("smoke alarm")
+  if (grepl("fire extinguisher", x)) return("fire extinguisher")
+  if (grepl("first aid kit", x)) return("first aid kit")
+  if (grepl("safe", x)) return("safe")
+  if (grepl("exterior security cameras|noise decibel monitors", x)) return("security device")
+
+  if (grepl("patio|balcony", x)) return("patio/balcony")
+  if (grepl("outdoor dining area|outdoor furniture|sun loungers|hammock", x)) return("outdoor seating")
+  if (grepl("bbq grill", x)) return("bbq grill")
+  if (grepl("fire pit", x)) return("fire pit")
+  if (grepl("hot tub", x)) return("hot tub")
+  if (grepl("pool|lap pool", x)) return("pool")
+  if (grepl("sauna", x)) return("sauna")
+  if (grepl("gym|exercise equipment|free weights|stationary bike|rowing|treadmill|workout bench|yoga mat|elliptical", x)) return("gym/workout equipment")
+  if (grepl("ping pong table|pool table", x)) return("game table")
+  if (grepl("kayak", x)) return("kayak")
+  if (grepl("boat slip", x)) return("boat slip")
+  if (grepl("ev charger|tesla only|level 1|level 2", x)) return("ev charger")
+
+  if (grepl("view|waterfront", x)) return("view")
+
+  if (grepl("parking|garage", x)) return("parking")
+  if (grepl("pets allowed", x)) return("pets allowed")
+  if (grepl("long term stays allowed", x)) return("long term stays allowed")
+  if (grepl("luggage dropoff allowed", x)) return("luggage dropoff allowed")
+  if (grepl("essentials", x)) return("essentials")
+  if (grepl("iron", x)) return("iron")
+  if (grepl("bbq utensils", x)) return("bbq utensils")
+  if (grepl("smoking allowed", x)) return("smoking allowed")
+
+  remove_patterns <- c(
+    "^c ", "^and ", "^there are ", "^varies", "^varied", "^variety",
+    "^various", "^usually ", "^liquid ", "^generic ", "^organic ",
+    "^eco ", "^premium ", "^private ", "^shared "
+  )
+
+  for (pat in remove_patterns) {
+    if (grepl(pat, x)) return(NA_character_)
+  }
+
+  return(x)
+}
+
+new_data$amenities <- lapply(new_data$amenities, function(x) {
+  x <- sapply(x, clean_amenity)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+
+final_cleanup <- function(x) {
+  x <- trimws(tolower(x))
+
+  if (x %in% c(
+    "100 vegan and cruelty free",
+    "7 days a week available at extra cost",
+    "every day available at extra cost",
+    "monday to friday available at extra cost",
+    "gilchrist and soames",
+    "nand 5 10 years old",
+    "ncoffee",
+    "nevery day available at extra cost",
+    "and",
+    "to"
+  )) return(NA_character_)
+
+  if (x %in% c("ac split type ductless system", "window ac unit", "nac split type ductless system")) return("air conditioning/fan")
+  if (x %in% c("backyard fully fenced", "nbackyard fully fenced")) return("backyard")
+  if (x %in% c("beach access beachfront", "nbeach access beachfront")) return("beach access")
+  if (x %in% c("body wash")) return("body soap")
+  if (x %in% c("espresso machine", "keurig coffee machine")) return("coffee maker")
+  if (x %in% c("free resort access", "nresort access")) return("resort access")
+  if (x %in% c("free carport on premises 1 space")) return("parking")
+  if (x %in% c("keypad")) return("self check-in")
+  if (x %in% c("ndedicated workspace")) return("dedicated workspace")
+  if (x %in% c("nlake access")) return("lake access")
+  if (x %in% c("nmovie theater")) return("movie theater")
+  if (x %in% c("ntrash compactor")) return("trash compactor")
+
+  return(x)
+}
+
+new_data$amenities <- lapply(new_data$amenities, function(x) {
+  x <- sapply(x, final_cleanup)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+all_amenities <- sort(unique(unlist(new_data$amenities)))
+
+cat("Total unique cleaned amenities:", length(all_amenities), "\n\n")
+print(all_amenities)
+
+amenities_list <- data.frame(Amenity = all_amenities)
+write.csv(amenities_list, "final_cleaned_amenities_v3.csv", row.names = FALSE)
+
+amenity_counts <- sort(table(unlist(new_data$amenities)), decreasing = TRUE)
+print(amenity_counts)
+
+write.csv(
+  data.frame(
+    Amenity = names(amenity_counts),
+    Count = as.numeric(amenity_counts)
+  ),
+  "final_cleaned_amenity_counts_v3.csv",
+  row.names = FALSE
+)
+```
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+
+amenity_counts <- sort(table(unlist(new_data$amenities)), decreasing = TRUE)
+
+top10 <- data.frame(
+  Amenity = names(amenity_counts)[1:10],
+  Count = as.numeric(amenity_counts)[1:10]
+)
+
+top10$Amenity <- factor(top10$Amenity, levels = rev(top10$Amenity))
+
+
+ggplot(top10, aes(x = Amenity, y = Count, fill = Amenity)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+
+  geom_text(
+    aes(label = Count),
+    hjust = -0.15,
+    size = 5,
+    fontface = "bold"
+  ) +
+
+  labs(
+    title = "Top 10 Amenities in Boston Airbnb Listings",
+    subtitle = "Based on fully cleaned and standardized amenities data",
+    x = "",
+    y = "Number of Listings"
+  ) +
+
+  scale_fill_viridis_d(option = "C") +
+
+  expand_limits(y = max(top10$Count) * 1.2) +
+
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 13, color = "gray40"),
+    axis.text.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(size = 11),
+    panel.grid.major.y = element_blank()
+  )
+
+```
+
+
+```{r}
+Jersey_data$amenities <- gsub("\\[|\\]|\"", "", Jersey_data$amenities)
+Jersey_data$amenities <- strsplit(Jersey_data$amenities, ", ")
+
+Jersey_data <- Jersey_data %>%
+  filter(sapply(amenities, length) > 0)
+
+
+clean_amenity <- function(x) {
+  x <- tolower(x)
+  x <- trimws(x)
+
+  x <- gsub("\\\\u2013|–|—", " ", x)
+  x <- gsub("\\\\u2019|\\\\u00e9|u2019|u00e9", " ", x)
+  x <- gsub("&", "and", x)
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  x <- gsub("\\balways at the listing\\b", "", x)
+  x <- gsub("\\bavailable upon request\\b", "", x)
+  x <- gsub("\\bdepending on availability\\b", "", x)
+  x <- gsub("\\bavailable all year\\b", "", x)
+  x <- gsub("\\bavailable seasonally\\b", "", x)
+  x <- gsub("\\bavailable at extra cost\\b", "", x)
+  x <- gsub("\\bon property\\b", "", x)
+  x <- gsub("\\bin building\\b", "", x)
+  x <- gsub("\\bin unit\\b", "", x)
+  x <- gsub("\\boff premises\\b", "", x)
+  x <- gsub("\\bon premises\\b", "", x)
+  x <- gsub("\\b1 space\\b|\\b2 spaces\\b|\\b4 spaces\\b", "", x)
+  x <- gsub("\\b1 day a week\\b|\\b2 days a week\\b|\\b3 days a week\\b", "", x)
+  x <- gsub("\\bmonday\\b|\\btuesday\\b|\\bwednesday\\b|\\bthursday\\b|\\bfriday\\b|\\bsaturday\\b|\\bsunday\\b", "", x)
+  x <- gsub("\\bopen 24 hours\\b|\\bopen specific hours\\b", "", x)
+  x <- gsub("\\b2 5 years old\\b|\\b5 10 years old\\b|\\b10 years old\\b|\\b10 years old\\b", "", x)
+  x <- gsub("\\band 10 years old\\b|\\band 5 10 years old\\b|\\band dresser\\b|\\band wardrobe\\b", "", x)
+  x <- gsub("\\bfor ages .*", "", x)
+  x <- gsub("\\bfrom .*", "", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  remove_exact <- c(
+    "", ".", "small", "gas", "electric", "heated", "coffee", "dove",
+    "disney", "fire tv", "apple tv", "roku", "netflix", "hulu", "hbo max",
+    "amazon prime video", "premium cable", "standard cable",
+    "open 24 hours", "open specific hours", "monday", "tuesday",
+    "wednesday", "thursday", "friday", "saturday", "sunday",
+    "every day", "thursday available at extra cost", "friday available at extra cost",
+    "saltwater", "native", "wood burning"
+  )
+  if (x %in% remove_exact) return(NA_character_)
+
+  x <- gsub("\\b(samsung|lg|bosch|whirlpool|frigidaire|ge|general electric|kitchenaid|kitchen aid|maytag|amana|aeg|avanti|forno|haier|kenmore|jenn air|hotpoint|magic chef|midea|samsung bespoke|fisher paykel|fisher and paykel|bluestar|gourmia|cuisinart|summit|oster|hotpoint|onkyo|sonos|sony|bose|vizio|crosley|echo dot|wonderboom|public goods|aesop|aveda|beekman|bergman kelly|cremo|dial|dr bronner s|ginger lily farms|ginger lilly farms|h20|hotel brand|infuse|molten brown|native|nivea|ogx|olay|pantene|paya|papaya|saltair|satinique|suave|tresemme|tresseme|v05|trader joe s|l or eal|dominican magic avocado|marula soul|g and h organic|silkience|papaya|professional salon quality|salon care|costco carries brands|what is available|various brands|whole foods|365|bath amenity|eco amenities|public good|luxury|regular|standard|generic|organic|basic|different|changes|changes from time to time|one brand|the one available|brand changes|varies|variety|various|available|any|etc)\\b", "", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  if (grepl("tv|hdtv|television|roku|chromecast|fire tv|apple tv|netflix|hulu|hbo|max|premium cable|standard cable|disney|dvd player", x)) {
+    if (grepl("dvd player", x)) return("dvd player")
+    return("tv")
+  }
+
+  if (grepl("wifi|fast wifi|ethernet|pocket wifi|mbps", x)) return("internet")
+
+  if (grepl("shampoo", x)) return("shampoo")
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("body soap|body wash|shower gel|soap", x)) return("body soap")
+
+  if (grepl("sound system|speaker|bluetooth", x)) return("sound system")
+  if (grepl("record player", x)) return("record player")
+  if (grepl("piano", x)) return("piano")
+
+  if (grepl("board games|arcade games|life size games", x)) return("games")
+  if (grepl("game console|ps4|ps5|xbox|nintendo|wii", x)) return("game console")
+  if (grepl("movie theater", x)) return("movie theater")
+  if (grepl("theme room", x)) return("theme room")
+  if (grepl("ping pong table|pool table", x)) return("game table")
+
+  if (grepl("kitchenette|kitchen", x)) return("kitchen")
+  if (grepl("microwave", x)) return("microwave")
+  if (grepl("dishwasher", x)) return("dishwasher")
+  if (grepl("refrigerator|fridge|mini fridge|undercounter", x)) return("refrigerator")
+  if (grepl("oven|double oven|single oven|speed oven|air fryer oven", x)) return("oven")
+  if (grepl("stove|burners|induction stove|electric stove|gas stove", x)) return("stove")
+  if (grepl("coffee maker|french press|keurig coffee machine|nespresso|pour over coffee|espresso machine", x)) return("coffee maker")
+  if (grepl("toaster", x)) return("toaster")
+  if (grepl("blender", x)) return("blender")
+  if (grepl("rice maker", x)) return("rice maker")
+  if (grepl("bread maker", x)) return("bread maker")
+  if (grepl("baking sheet", x)) return("baking sheet")
+  if (grepl("barbecue utensils", x)) return("bbq utensils")
+  if (grepl("hot water kettle", x)) return("kettle")
+  if (grepl("freezer", x)) return("freezer")
+  if (grepl("cooking basics", x)) return("cooking basics")
+  if (grepl("dishes and silverware", x)) return("dishes and silverware")
+  if (grepl("dining table", x)) return("dining table")
+  if (grepl("wine glasses", x)) return("wine glasses")
+  if (grepl("breakfast", x)) return("breakfast")
+  if (grepl("trash compactor", x)) return("trash compactor")
+
+  if (grepl("bathtub|bidet", x)) return("bathtub/bidet")
+  if (grepl("hair dryer", x)) return("hair dryer")
+  if (grepl("bed linens", x)) return("bed linens")
+  if (grepl("extra pillows and blankets", x)) return("extra pillows and blankets")
+  if (grepl("hangers", x)) return("hangers")
+  if (grepl("closet|wardrobe|clothing storage", x)) return("clothing storage")
+  if (grepl("room darkening shades|room darkening", x)) return("room darkening shades")
+  if (grepl("mosquito net", x)) return("mosquito net")
+  if (grepl("lock on bedroom door", x)) return("lock on bedroom door")
+  if (grepl("private living room", x)) return("private living room")
+  if (grepl("drying rack for clothing", x)) return("drying rack for clothing")
+  if (grepl("hot water", x)) return("hot water")
+
+  if (grepl("crib|travel crib|pack n play", x)) return("crib")
+  if (grepl("high chair|booster seat|clamp on table seat", x)) return("high chair")
+  if (grepl("baby bath", x)) return("baby bath")
+  if (grepl("baby monitor", x)) return("baby monitor")
+  if (grepl("changing table", x)) return("changing table")
+  if (grepl("children s books and toys|books and reading material", x)) return("books and toys")
+  if (grepl("children s bikes|bikes", x)) return("bikes")
+  if (grepl("children s dinnerware", x)) return("children’s dinnerware")
+  if (grepl("baby safety gates|outlet covers|table corner guards|window guards|fireplace guards", x)) return("child safety features")
+  if (grepl("children s playroom|outdoor playground", x)) return("play area")
+  if (grepl("babysitter recommendations", x)) return("babysitter recommendations")
+
+  if (grepl("air conditioning|central air conditioning|portable air conditioning|window ac unit|ac split type ductless system|ceiling fan|portable fans", x)) return("air conditioning/fan")
+  if (grepl("heating|central heating|radiant heating|portable heater|heating split type ductless system", x)) return("heating")
+  if (grepl("indoor fireplace|fireplace", x)) return("fireplace")
+
+  if (grepl("washer", x)) return("washer")
+  if (grepl("dryer", x)) return("dryer")
+  if (grepl("laundromat nearby", x)) return("laundromat nearby")
+  if (grepl("cleaning products", x)) return("cleaning products")
+  if (grepl("housekeeping|cleaning available during stay", x)) return("housekeeping")
+
+  if (grepl("self check in|lockbox|smart lock|keypad", x)) return("self check-in")
+  if (grepl("private entrance", x)) return("private entrance")
+  if (grepl("elevator", x)) return("elevator")
+  if (grepl("single level home", x)) return("single level home")
+  if (grepl("building staff|host greets you", x)) return("host service")
+  if (grepl("carbon monoxide alarm", x)) return("carbon monoxide alarm")
+  if (grepl("smoke alarm", x)) return("smoke alarm")
+  if (grepl("fire extinguisher", x)) return("fire extinguisher")
+  if (grepl("first aid kit", x)) return("first aid kit")
+  if (grepl("exterior security cameras|noise decibel monitors", x)) return("security device")
+  if (grepl("safe", x)) return("safe")
+
+  if (grepl("patio or balcony|private patio or balcony|shared patio or balcony", x)) return("patio/balcony")
+  if (grepl("outdoor dining area|outdoor furniture|sun loungers|hammock", x)) return("outdoor seating")
+  if (grepl("backyard fully fenced|private backyard fully fenced|shared backyard fully fenced", x)) return("backyard fully fenced")
+  if (grepl("backyard|private backyard|shared backyard", x)) return("backyard")
+  if (grepl("bbq grill", x)) return("bbq grill")
+  if (grepl("outdoor kitchen|private outdoor kitchen|shared outdoor kitchen", x)) return("outdoor kitchen")
+  if (grepl("fire pit", x)) return("fire pit")
+  if (grepl("hot tub", x)) return("hot tub")
+  if (grepl("pool|lap pool", x)) return("pool")
+  if (grepl("sauna", x)) return("sauna")
+  if (grepl("gym|exercise equipment|free weights|stationary bike|rowing|treadmill|workout bench|yoga mat", x)) return("gym/workout equipment")
+  if (grepl("ev charger|tesla only|level 1|level 2", x)) return("ev charger")
+  if (grepl("kayak", x)) return("kayak")
+  if (grepl("boat slip", x)) return("boat slip")
+  if (grepl("bowling alley", x)) return("bowling alley")
+  if (grepl("climbing wall", x)) return("climbing wall")
+  if (grepl("hockey rink", x)) return("hockey rink")
+  if (grepl("mini golf", x)) return("mini golf")
+  if (grepl("outdoor shower", x)) return("outdoor shower")
+  if (grepl("skate ramp", x)) return("skate ramp")
+  if (grepl("ski in ski out", x)) return("ski-in/ski-out")
+
+  if (grepl("beach access", x)) return("beach access")
+  if (grepl("lake access", x)) return("lake access")
+  if (grepl("resort access", x)) return("resort access")
+  if (grepl("view|waterfront", x)) return("view")
+
+  if (grepl("parking|garage|carport|driveway|street parking", x)) return("parking")
+  if (grepl("pets allowed", x)) return("pets allowed")
+  if (grepl("long term stays allowed", x)) return("long term stays allowed")
+  if (grepl("luggage dropoff allowed", x)) return("luggage dropoff allowed")
+  if (grepl("essentials", x)) return("essentials")
+  if (grepl("iron", x)) return("iron")
+  if (grepl("dedicated workspace", x)) return("dedicated workspace")
+  if (grepl("smoking allowed", x)) return("smoking allowed")
+  if (grepl("beach essentials", x)) return("beach essentials")
+
+  remove_patterns <- c(
+    "^c ", "^and ", "^there are ", "^varies", "^varied", "^variety",
+    "^various", "^usually ", "^liquid ", "^generic ", "^organic ",
+    "^eco ", "^premium ", "^private ", "^shared ", "^available ",
+    "^changes", "^different", "^regular", "^standard", "^luxury",
+    "^hotel brand", "^bath amenity", "^one brand", "^for a few days"
+  )
+
+  for (pat in remove_patterns) {
+    if (grepl(pat, x)) return(NA_character_)
+  }
+
+  x <- trimws(x)
+  if (x == "") return(NA_character_)
+
+  return(x)
+}
+
+Jersey_data$amenities <- lapply(Jersey_data$amenities, function(x) {
+  x <- sapply(x, clean_amenity)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+remove_amenities <- c(
+  "100 vegan and cruelty free",
+  "1 day a week",
+  "2 days a week",
+  "3 days a week",
+  "every day",
+  "monday to saturday",
+  "thursday",
+  "tuesday",
+  "wednesday"
+)
+
+Jersey_data$amenities <- lapply(Jersey_data$amenities, function(x) {
+  x <- x[!x %in% remove_amenities]
+  unique(x)
+})
+
+jersey_amenity_counts <- sort(table(unlist(Jersey_data$amenities)), decreasing = TRUE)
+print(jersey_amenity_counts)
+
+# save cleaned list before count filtering
+jersey_all_cleaned_amenities <- sort(unique(unlist(Jersey_data$amenities)))
+write.csv(
+  data.frame(Amenity = jersey_all_cleaned_amenities),
+  "jersey_cleaned_amenities_before_count_filter.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  data.frame(
+    Amenity = names(jersey_amenity_counts),
+    Count = as.numeric(jersey_amenity_counts)
+  ),
+  "jersey_cleaned_amenity_counts_before_filter.csv",
+  row.names = FALSE
+)
+
+
+min_count <- 30
+
+keep_rare <- c(
+  "game console",
+  "piano",
+  "smoking allowed",
+  "changing table",
+  "dvd player",
+  "lake access",
+  "baby monitor",
+  "movie theater",
+  "record player",
+  "resort access",
+  "theme room",
+  "backyard fully fenced",
+  "hockey rink",
+  "bowling alley",
+  "outdoor shower",
+  "sauna",
+  "boat slip",
+  "kayak",
+  "climbing wall",
+  "skate ramp"
+)
+
+keep_amenities <- union(
+  names(jersey_amenity_counts[jersey_amenity_counts >= min_count]),
+  keep_rare
+)
+
+Jersey_data$amenities_filtered <- lapply(Jersey_data$amenities, function(x) {
+  x[x %in% keep_amenities]
+})
+
+# FINAL OUTPUT
+jersey_final_amenities <- sort(unique(unlist(Jersey_data$amenities_filtered)))
+
+cat("Final number of Jersey amenities:", length(jersey_final_amenities), "\n\n")
+print(jersey_final_amenities)
+
+jersey_final_counts <- sort(table(unlist(Jersey_data$amenities_filtered)), decreasing = TRUE)
+print(jersey_final_counts)
+
+write.csv(
+  data.frame(Amenity = jersey_final_amenities),
+  "jersey_final_filtered_amenities.csv",
+  row.names = FALSE
+)
+
+write.csv(
+  data.frame(
+    Amenity = names(jersey_final_counts),
+    Count = as.numeric(jersey_final_counts)
+  ),
+  "jersey_final_filtered_amenity_counts.csv",
+  row.names = FALSE
+)
+```
+
+
+```{r}
+library(ggplot2)
+
+top10_jersey <- data.frame(
+  Amenity = c(
+    "internet",
+    "smoke alarm",
+    "air conditioning/fan",
+    "kitchen",
+    "carbon monoxide alarm",
+    "heating",
+    "hot water",
+    "tv",
+    "refrigerator",
+    "microwave"
+  ),
+  Count = c(
+    1606, 1585, 1578, 1541, 1534,
+    1504, 1467, 1415, 1414, 1368
+  )
+)
+
+top10_jersey$Amenity <- factor(top10_jersey$Amenity, levels = rev(top10_jersey$Amenity))
+
+# PLOT
+ggplot(top10_jersey, aes(x = Amenity, y = Count, fill = Amenity)) +
+  geom_col(width = 0.7, show.legend = FALSE) +
+  coord_flip() +
+  
+  geom_text(
+    aes(label = Count),
+    hjust = -0.15,
+    size = 5,
+    fontface = "bold"
+  ) +
+  
+  labs(
+    title = "Top 10 Amenities in Jersey City Airbnb Listings",
+    subtitle = "Based on cleaned and filtered amenities data",
+    x = "",
+    y = "Number of Listings"
+  ) +
+  
+  scale_fill_viridis_d(option = "C") +
+  expand_limits(y = max(top10_jersey$Count) * 1.15) +
+  
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    plot.subtitle = element_text(size = 13, color = "gray40"),
+    axis.text.y = element_text(size = 12, face = "bold"),
+    axis.text.x = element_text(size = 11),
+    panel.grid.major.y = element_blank()
+  )
+```
+
+
+```{r}
+
+
+library(dplyr)
+
+boston_step0 <- nrow(listings_Boston)
+jersey_step0 <- nrow(listings_Jersey)
+
+boston_data1 <- listings_Boston %>%
+  filter(!is.na(price) & price != "")
+
+jersey_data1 <- listings_Jersey %>%
+  filter(!is.na(price) & price != "")
+
+boston_step1 <- nrow(boston_data1)
+jersey_step1 <- nrow(jersey_data1)
+
+boston_data1$price <- gsub("[\\$, ]", "", boston_data1$price)
+boston_data1$price <- as.numeric(boston_data1$price)
+
+jersey_data1$price <- gsub("[\\$, ]", "", jersey_data1$price)
+jersey_data1$price <- as.numeric(jersey_data1$price)
+
+boston_data1 <- boston_data1 %>% filter(!is.na(price))
+jersey_data1 <- jersey_data1 %>% filter(!is.na(price))
+
+boston_step2 <- nrow(boston_data1)
+jersey_step2 <- nrow(jersey_data1)
+
+boston_tax_rate <- 0.1525
+jersey_tax_rate <- 0.09625
+
+boston_data1$price_with_tax <- boston_data1$price * (1 + boston_tax_rate)
+jersey_data1$price_with_tax <- jersey_data1$price * (1 + jersey_tax_rate)
+
+boston_data1$amenities <- gsub("\\[|\\]|\"", "", boston_data1$amenities)
+boston_data1$amenities <- strsplit(boston_data1$amenities, ", ")
+
+jersey_data1$amenities <- gsub("\\[|\\]|\"", "", jersey_data1$amenities)
+jersey_data1$amenities <- strsplit(jersey_data1$amenities, ", ")
+
+
+boston_data2 <- boston_data1 %>%
+  filter(sapply(amenities, length) > 0)
+
+jersey_data2 <- jersey_data1 %>%
+  filter(sapply(amenities, length) > 0)
+
+boston_step3 <- nrow(boston_data2)
+jersey_step3 <- nrow(jersey_data2)
+
+
+boston_data3 <- boston_data2 %>%
+  filter(price <= 1000, minimum_nights < 120)
+
+jersey_data3 <- jersey_data2 %>%
+  filter(price <= 1000, minimum_nights < 120)
+
+boston_step4 <- nrow(boston_data3)
+jersey_step4 <- nrow(jersey_data3)
+
+boston_data3$price_per_guest <- boston_data3$price / boston_data3$accommodates
+jersey_data3$price_per_guest <- jersey_data3$price / jersey_data3$accommodates
+
+clean_amenity_boston <- function(x) {
+  x <- tolower(x)
+  x <- trimws(x)
+
+  x <- gsub("\\\\u2013|–|—", " ", x)
+  x <- gsub("\\\\u2019|u2019|u00e9", " ", x)
+  x <- gsub("&", "and", x)
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  remove_exact <- c(
+    "2 5 years old", "5 10 years old", "and 10 years old", "and 5 10 years old",
+    "and dresser", "and wardrobe", "every day", "every day available",
+    "7 days a week available", "open 24 hours", "open specific hours",
+    "monday to friday available", "it varies", "small", "gas",
+    "under the counter", "bosch", "integra", "martin logan", "toshiba",
+    "disney", "coffee", "dove", "heated", "and", "to"
+  )
+  if (x %in% remove_exact) return(NA_character_)
+
+  x <- gsub("\\balways at the listing\\b", "", x)
+  x <- gsub("\\bavailable upon request\\b", "", x)
+  x <- gsub("\\bdepending on availability\\b", "", x)
+  x <- gsub("\\bavailable all year\\b", "", x)
+  x <- gsub("\\bavailable seasonally\\b", "", x)
+  x <- gsub("\\bon property\\b", "", x)
+  x <- gsub("\\bnearby\\b", " nearby", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("body wash|shower gel", x)) return("body wash")
+  if (grepl("soap", x)) return("body soap")
+  if (grepl("toothpaste", x)) return(NA_character_)
+
+  if (grepl("tv|television|roku|chromecast|premium cable|standard cable|amazon prime video|netflix|hulu|hbo max", x)) return("tv")
+  if (grepl("dvd player", x)) return("dvd player")
+  if (grepl("board games|arcade games|life size games", x)) return("games")
+  if (grepl("game console|ps3|ps4|xbox|nintendo switch", x)) return("game console")
+  if (grepl("piano", x)) return("piano")
+  if (grepl("record player", x)) return("record player")
+  if (grepl("sound system|speaker|alexa|google home|google assistant|bluetooth", x)) return("sound system")
+
+  if (grepl("kitchen", x)) return("kitchen")
+  if (grepl("microwave", x)) return("microwave")
+  if (grepl("oven", x)) return("oven")
+  if (grepl("stove|burners", x)) return("stove")
+  if (grepl("refrigerator|fridge", x)) return("refrigerator")
+  if (grepl("freezer", x)) return("freezer")
+  if (grepl("dishwasher", x)) return("dishwasher")
+  if (grepl("coffee maker|french press|pour over coffee|nespresso", x)) return("coffee maker")
+  if (grepl("rice maker", x)) return("rice maker")
+  if (grepl("bread maker", x)) return("bread maker")
+  if (grepl("blender", x)) return("blender")
+  if (grepl("toaster", x)) return("toaster")
+  if (grepl("baking sheet", x)) return("baking sheet")
+  if (grepl("barbecue utensils", x)) return("bbq utensils")
+  if (grepl("cooking basics", x)) return("cooking basics")
+  if (grepl("dishes and silverware", x)) return("dishes and silverware")
+  if (grepl("wine glasses", x)) return("wine glasses")
+  if (grepl("dining table", x)) return("dining table")
+  if (grepl("breakfast", x)) return("breakfast")
+
+  if (grepl("crib", x)) return("crib")
+  if (grepl("high chair|booster seat", x)) return("high chair")
+  if (grepl("baby bath", x)) return("baby bath")
+  if (grepl("baby monitor", x)) return("baby monitor")
+  if (grepl("changing table", x)) return("changing table")
+  if (grepl("children s books and toys|books and reading material", x)) return("books and toys")
+  if (grepl("children s bikes|bikes", x)) return("bikes")
+  if (grepl("children s dinnerware", x)) return("children's dinnerware")
+  if (grepl("baby safety gates|outlet covers|table corner guards|window guards", x)) return("child safety features")
+  if (grepl("children s playroom|outdoor playground", x)) return("play area")
+  if (grepl("babysitter recommendations", x)) return("babysitter recommendations")
+
+  if (grepl("bathtub|bidet", x)) return("bathtub/bidet")
+  if (grepl("hair dryer", x)) return("hair dryer")
+  if (grepl("shampoo", x)) return("shampoo")
+  if (grepl("hot water", x)) return("hot water")
+  if (grepl("bed linens", x)) return("bed linens")
+  if (grepl("extra pillows and blankets", x)) return("extra pillows and blankets")
+  if (grepl("hangers", x)) return("hangers")
+  if (grepl("closet|wardrobe|clothing storage", x)) return("clothing storage")
+  if (grepl("room darkening shades", x)) return("room darkening shades")
+  if (grepl("mosquito net", x)) return("mosquito net")
+  if (grepl("lock on bedroom door", x)) return("lock on bedroom door")
+  if (grepl("private living room", x)) return("private living room")
+
+  if (grepl("air conditioning|ceiling fan|portable fans", x)) return("air conditioning/fan")
+  if (grepl("heating|portable heater", x)) return("heating")
+  if (grepl("fireplace", x)) return("fireplace")
+
+  if (grepl("washer", x)) return("washer")
+  if (grepl("dryer", x)) return("dryer")
+  if (grepl("laundromat nearby", x)) return("laundromat nearby")
+  if (grepl("cleaning products", x)) return("cleaning products")
+  if (grepl("cleaning available during stay|housekeeping", x)) return("housekeeping")
+
+  if (grepl("wifi|ethernet", x)) return("internet")
+  if (grepl("self check in|lockbox|smart lock", x)) return("self check-in")
+  if (grepl("private entrance", x)) return("private entrance")
+  if (grepl("elevator", x)) return("elevator")
+  if (grepl("single level home", x)) return("single level home")
+  if (grepl("building staff|host greets you", x)) return("host service")
+  if (grepl("carbon monoxide alarm", x)) return("carbon monoxide alarm")
+  if (grepl("smoke alarm", x)) return("smoke alarm")
+  if (grepl("fire extinguisher", x)) return("fire extinguisher")
+  if (grepl("first aid kit", x)) return("first aid kit")
+  if (grepl("safe", x)) return("safe")
+  if (grepl("exterior security cameras|noise decibel monitors", x)) return("security device")
+
+  if (grepl("patio|balcony", x)) return("patio/balcony")
+  if (grepl("outdoor dining area|outdoor furniture|sun loungers|hammock", x)) return("outdoor seating")
+  if (grepl("bbq grill", x)) return("bbq grill")
+  if (grepl("fire pit", x)) return("fire pit")
+  if (grepl("hot tub", x)) return("hot tub")
+  if (grepl("pool|lap pool", x)) return("pool")
+  if (grepl("sauna", x)) return("sauna")
+  if (grepl("gym|exercise equipment|free weights|stationary bike|rowing|treadmill|workout bench|yoga mat|elliptical", x)) return("gym/workout equipment")
+  if (grepl("ping pong table|pool table", x)) return("game table")
+  if (grepl("kayak", x)) return("kayak")
+  if (grepl("boat slip", x)) return("boat slip")
+  if (grepl("ev charger|tesla only|level 1|level 2", x)) return("ev charger")
+
+  if (grepl("view|waterfront", x)) return("view")
+
+  if (grepl("parking|garage", x)) return("parking")
+  if (grepl("pets allowed", x)) return("pets allowed")
+  if (grepl("long term stays allowed", x)) return("long term stays allowed")
+  if (grepl("luggage dropoff allowed", x)) return("luggage dropoff allowed")
+  if (grepl("essentials", x)) return("essentials")
+  if (grepl("iron", x)) return("iron")
+  if (grepl("bbq utensils", x)) return("bbq utensils")
+  if (grepl("smoking allowed", x)) return("smoking allowed")
+
+  remove_patterns <- c(
+    "^c ", "^and ", "^there are ", "^varies", "^varied", "^variety",
+    "^various", "^usually ", "^liquid ", "^generic ", "^organic ",
+    "^eco ", "^premium ", "^private ", "^shared "
+  )
+  for (pat in remove_patterns) {
+    if (grepl(pat, x)) return(NA_character_)
+  }
+
+  return(x)
+}
+
+final_cleanup_boston <- function(x) {
+  x <- trimws(tolower(x))
+
+  if (x %in% c(
+    "100 vegan and cruelty free",
+    "7 days a week available at extra cost",
+    "every day available at extra cost",
+    "monday to friday available at extra cost",
+    "gilchrist and soames",
+    "nand 5 10 years old",
+    "ncoffee",
+    "nevery day available at extra cost",
+    "and",
+    "to"
+  )) return(NA_character_)
+
+  if (x %in% c("ac split type ductless system", "window ac unit", "nac split type ductless system")) return("air conditioning/fan")
+  if (x %in% c("backyard fully fenced", "nbackyard fully fenced")) return("backyard")
+  if (x %in% c("beach access beachfront", "nbeach access beachfront")) return("beach access")
+  if (x %in% c("body wash")) return("body soap")
+  if (x %in% c("espresso machine", "keurig coffee machine")) return("coffee maker")
+  if (x %in% c("free resort access", "nresort access")) return("resort access")
+  if (x %in% c("free carport on premises 1 space")) return("parking")
+  if (x %in% c("keypad")) return("self check-in")
+  if (x %in% c("ndedicated workspace")) return("dedicated workspace")
+  if (x %in% c("nlake access")) return("lake access")
+  if (x %in% c("nmovie theater")) return("movie theater")
+  if (x %in% c("ntrash compactor")) return("trash compactor")
+
+  return(x)
+}
+
+clean_amenity_jersey <- function(x) {
+  x <- tolower(x)
+  x <- trimws(x)
+
+  x <- gsub("\\\\u2013|–|—", " ", x)
+  x <- gsub("\\\\u2019|\\\\u00e9|u2019|u00e9", " ", x)
+  x <- gsub("&", "and", x)
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  x <- gsub("\\balways at the listing\\b", "", x)
+  x <- gsub("\\bavailable upon request\\b", "", x)
+  x <- gsub("\\bdepending on availability\\b", "", x)
+  x <- gsub("\\bavailable all year\\b", "", x)
+  x <- gsub("\\bavailable seasonally\\b", "", x)
+  x <- gsub("\\bavailable at extra cost\\b", "", x)
+  x <- gsub("\\bon property\\b", "", x)
+  x <- gsub("\\bin building\\b", "", x)
+  x <- gsub("\\bin unit\\b", "", x)
+  x <- gsub("\\boff premises\\b", "", x)
+  x <- gsub("\\bon premises\\b", "", x)
+  x <- gsub("\\b1 space\\b|\\b2 spaces\\b|\\b4 spaces\\b", "", x)
+  x <- gsub("\\b1 day a week\\b|\\b2 days a week\\b|\\b3 days a week\\b", "", x)
+  x <- gsub("\\bmonday\\b|\\btuesday\\b|\\bwednesday\\b|\\bthursday\\b|\\bfriday\\b|\\bsaturday\\b|\\bsunday\\b", "", x)
+  x <- gsub("\\bopen 24 hours\\b|\\bopen specific hours\\b", "", x)
+  x <- gsub("\\b2 5 years old\\b|\\b5 10 years old\\b|\\b10 years old\\b", "", x)
+  x <- gsub("\\band 10 years old\\b|\\band 5 10 years old\\b|\\band dresser\\b|\\band wardrobe\\b", "", x)
+  x <- gsub("\\bfor ages .*", "", x)
+  x <- gsub("\\bfrom .*", "", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  remove_exact <- c(
+    "", ".", "small", "gas", "electric", "heated", "coffee", "dove",
+    "disney", "fire tv", "apple tv", "roku", "netflix", "hulu", "hbo max",
+    "amazon prime video", "premium cable", "standard cable",
+    "open 24 hours", "open specific hours", "monday", "tuesday",
+    "wednesday", "thursday", "friday", "saturday", "sunday",
+    "every day", "thursday available at extra cost", "friday available at extra cost",
+    "saltwater", "native", "wood burning"
+  )
+  if (x %in% remove_exact) return(NA_character_)
+
+  x <- gsub("\\b(samsung|lg|bosch|whirlpool|frigidaire|ge|general electric|kitchenaid|kitchen aid|maytag|amana|aeg|avanti|forno|haier|kenmore|jenn air|hotpoint|magic chef|midea|samsung bespoke|fisher paykel|fisher and paykel|bluestar|gourmia|cuisinart|summit|oster|hotpoint|onkyo|sonos|sony|bose|vizio|crosley|echo dot|wonderboom|public goods|aesop|aveda|beekman|bergman kelly|cremo|dial|dr bronner s|ginger lily farms|ginger lilly farms|h20|hotel brand|infuse|molten brown|native|nivea|ogx|olay|pantene|paya|papaya|saltair|satinique|suave|tresemme|tresseme|v05|trader joe s|l or eal|dominican magic avocado|marula soul|g and h organic|silkience|papaya|professional salon quality|salon care|costco carries brands|what is available|various brands|whole foods|365|bath amenity|eco amenities|public good|luxury|regular|standard|generic|organic|basic|different|changes|changes from time to time|one brand|the one available|brand changes|varies|variety|various|available|any|etc)\\b", "", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  if (grepl("tv|hdtv|television|roku|chromecast|fire tv|apple tv|netflix|hulu|hbo|max|premium cable|standard cable|disney|dvd player", x)) {
+    if (grepl("dvd player", x)) return("dvd player")
+    return("tv")
+  }
+  if (grepl("wifi|fast wifi|ethernet|pocket wifi|mbps", x)) return("internet")
+  if (grepl("shampoo", x)) return("shampoo")
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("body soap|body wash|shower gel|soap", x)) return("body soap")
+  if (grepl("sound system|speaker|bluetooth", x)) return("sound system")
+  if (grepl("record player", x)) return("record player")
+  if (grepl("piano", x)) return("piano")
+  if (grepl("board games|arcade games|life size games", x)) return("games")
+  if (grepl("game console|ps4|ps5|xbox|nintendo|wii", x)) return("game console")
+  if (grepl("movie theater", x)) return("movie theater")
+  if (grepl("theme room", x)) return("theme room")
+  if (grepl("ping pong table|pool table", x)) return("game table")
+  if (grepl("kitchenette|kitchen", x)) return("kitchen")
+  if (grepl("microwave", x)) return("microwave")
+  if (grepl("dishwasher", x)) return("dishwasher")
+  if (grepl("refrigerator|fridge|mini fridge|undercounter", x)) return("refrigerator")
+  if (grepl("oven|double oven|single oven|speed oven|air fryer oven", x)) return("oven")
+  if (grepl("stove|burners|induction stove|electric stove|gas stove", x)) return("stove")
+  if (grepl("coffee maker|french press|keurig coffee machine|nespresso|pour over coffee|espresso machine", x)) return("coffee maker")
+  if (grepl("toaster", x)) return("toaster")
+  if (grepl("blender", x)) return("blender")
+  if (grepl("rice maker", x)) return("rice maker")
+  if (grepl("bread maker", x)) return("bread maker")
+  if (grepl("baking sheet", x)) return("baking sheet")
+  if (grepl("barbecue utensils", x)) return("bbq utensils")
+  if (grepl("hot water kettle", x)) return("kettle")
+  if (grepl("freezer", x)) return("freezer")
+  if (grepl("cooking basics", x)) return("cooking basics")
+  if (grepl("dishes and silverware", x)) return("dishes and silverware")
+  if (grepl("dining table", x)) return("dining table")
+  if (grepl("wine glasses", x)) return("wine glasses")
+  if (grepl("breakfast", x)) return("breakfast")
+  if (grepl("trash compactor", x)) return("trash compactor")
+  if (grepl("bathtub|bidet", x)) return("bathtub/bidet")
+  if (grepl("hair dryer", x)) return("hair dryer")
+  if (grepl("bed linens", x)) return("bed linens")
+  if (grepl("extra pillows and blankets", x)) return("extra pillows and blankets")
+  if (grepl("hangers", x)) return("hangers")
+  if (grepl("closet|wardrobe|clothing storage", x)) return("clothing storage")
+  if (grepl("room darkening shades|room darkening", x)) return("room darkening shades")
+  if (grepl("mosquito net", x)) return("mosquito net")
+  if (grepl("lock on bedroom door", x)) return("lock on bedroom door")
+  if (grepl("private living room", x)) return("private living room")
+  if (grepl("drying rack for clothing", x)) return("drying rack for clothing")
+  if (grepl("hot water", x)) return("hot water")
+  if (grepl("crib|travel crib|pack n play", x)) return("crib")
+  if (grepl("high chair|booster seat|clamp on table seat", x)) return("high chair")
+  if (grepl("baby bath", x)) return("baby bath")
+  if (grepl("baby monitor", x)) return("baby monitor")
+  if (grepl("changing table", x)) return("changing table")
+  if (grepl("children s books and toys|books and reading material", x)) return("books and toys")
+  if (grepl("children s bikes|bikes", x)) return("bikes")
+  if (grepl("children s dinnerware", x)) return("children’s dinnerware")
+  if (grepl("baby safety gates|outlet covers|table corner guards|window guards|fireplace guards", x)) return("child safety features")
+  if (grepl("children s playroom|outdoor playground", x)) return("play area")
+  if (grepl("babysitter recommendations", x)) return("babysitter recommendations")
+  if (grepl("air conditioning|central air conditioning|portable air conditioning|window ac unit|ac split type ductless system|ceiling fan|portable fans", x)) return("air conditioning/fan")
+  if (grepl("heating|central heating|radiant heating|portable heater|heating split type ductless system", x)) return("heating")
+  if (grepl("indoor fireplace|fireplace", x)) return("fireplace")
+  if (grepl("washer", x)) return("washer")
+  if (grepl("dryer", x)) return("dryer")
+  if (grepl("laundromat nearby", x)) return("laundromat nearby")
+  if (grepl("cleaning products", x)) return("cleaning products")
+  if (grepl("housekeeping|cleaning available during stay", x)) return("housekeeping")
+  if (grepl("self check in|lockbox|smart lock|keypad", x)) return("self check-in")
+  if (grepl("private entrance", x)) return("private entrance")
+  if (grepl("elevator", x)) return("elevator")
+  if (grepl("single level home", x)) return("single level home")
+  if (grepl("building staff|host greets you", x)) return("host service")
+  if (grepl("carbon monoxide alarm", x)) return("carbon monoxide alarm")
+  if (grepl("smoke alarm", x)) return("smoke alarm")
+  if (grepl("fire extinguisher", x)) return("fire extinguisher")
+  if (grepl("first aid kit", x)) return("first aid kit")
+  if (grepl("exterior security cameras|noise decibel monitors", x)) return("security device")
+  if (grepl("safe", x)) return("safe")
+  if (grepl("patio or balcony|private patio or balcony|shared patio or balcony", x)) return("patio/balcony")
+  if (grepl("outdoor dining area|outdoor furniture|sun loungers|hammock", x)) return("outdoor seating")
+  if (grepl("backyard fully fenced|private backyard fully fenced|shared backyard fully fenced", x)) return("backyard fully fenced")
+  if (grepl("backyard|private backyard|shared backyard", x)) return("backyard")
+  if (grepl("bbq grill", x)) return("bbq grill")
+  if (grepl("outdoor kitchen|private outdoor kitchen|shared outdoor kitchen", x)) return("outdoor kitchen")
+  if (grepl("fire pit", x)) return("fire pit")
+  if (grepl("hot tub", x)) return("hot tub")
+  if (grepl("pool|lap pool", x)) return("pool")
+  if (grepl("sauna", x)) return("sauna")
+  if (grepl("gym|exercise equipment|free weights|stationary bike|rowing|treadmill|workout bench|yoga mat", x)) return("gym/workout equipment")
+  if (grepl("ev charger|tesla only|level 1|level 2", x)) return("ev charger")
+  if (grepl("kayak", x)) return("kayak")
+  if (grepl("boat slip", x)) return("boat slip")
+  if (grepl("bowling alley", x)) return("bowling alley")
+  if (grepl("climbing wall", x)) return("climbing wall")
+  if (grepl("hockey rink", x)) return("hockey rink")
+  if (grepl("mini golf", x)) return("mini golf")
+  if (grepl("outdoor shower", x)) return("outdoor shower")
+  if (grepl("skate ramp", x)) return("skate ramp")
+  if (grepl("ski in ski out", x)) return("ski-in/ski-out")
+  if (grepl("beach access", x)) return("beach access")
+  if (grepl("lake access", x)) return("lake access")
+  if (grepl("resort access", x)) return("resort access")
+  if (grepl("view|waterfront", x)) return("view")
+  if (grepl("parking|garage|carport|driveway|street parking", x)) return("parking")
+  if (grepl("pets allowed", x)) return("pets allowed")
+  if (grepl("long term stays allowed", x)) return("long term stays allowed")
+  if (grepl("luggage dropoff allowed", x)) return("luggage dropoff allowed")
+  if (grepl("essentials", x)) return("essentials")
+  if (grepl("iron", x)) return("iron")
+  if (grepl("dedicated workspace", x)) return("dedicated workspace")
+  if (grepl("smoking allowed", x)) return("smoking allowed")
+  if (grepl("beach essentials", x)) return("beach essentials")
+
+  remove_patterns <- c(
+    "^c ", "^and ", "^there are ", "^varies", "^varied", "^variety",
+    "^various", "^usually ", "^liquid ", "^generic ", "^organic ",
+    "^eco ", "^premium ", "^private ", "^shared ", "^available ",
+    "^changes", "^different", "^regular", "^standard", "^luxury",
+    "^hotel brand", "^bath amenity", "^one brand", "^for a few days"
+  )
+  for (pat in remove_patterns) {
+    if (grepl(pat, x)) return(NA_character_)
+  }
+
+  x <- trimws(x)
+  if (x == "") return(NA_character_)
+
+  return(x)
+}
+
+remove_amenities_jersey <- c(
+  "100 vegan and cruelty free",
+  "1 day a week",
+  "2 days a week",
+  "3 days a week",
+  "every day",
+  "monday to saturday",
+  "thursday",
+  "tuesday",
+  "wednesday"
+)
+
+# Boston
+boston_data4 <- boston_data3
+boston_data4$amenities <- lapply(boston_data4$amenities, function(x) {
+  x <- sapply(x, clean_amenity_boston)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+boston_data4$amenities <- lapply(boston_data4$amenities, function(x) {
+  x <- sapply(x, final_cleanup_boston)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+# Jersey
+jersey_data4 <- jersey_data3
+jersey_data4$amenities <- lapply(jersey_data4$amenities, function(x) {
+  x <- sapply(x, clean_amenity_jersey)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+jersey_data4$amenities <- lapply(jersey_data4$amenities, function(x) {
+  x <- x[!x %in% remove_amenities_jersey]
+  unique(x)
+})
+
+boston_step5 <- nrow(boston_data4)
+jersey_step5 <- nrow(jersey_data4)
+
+
+boston_data5 <- boston_data4 %>%
+  filter(sapply(amenities, length) > 0)
+
+jersey_data5 <- jersey_data4 %>%
+  filter(sapply(amenities, length) > 0)
+
+boston_step6 <- nrow(boston_data5)
+jersey_step6 <- nrow(jersey_data5)
+
+
+jersey_amenity_counts <- sort(table(unlist(jersey_data5$amenities)), decreasing = TRUE)
+
+min_count <- 30
+keep_rare <- c(
+  "game console", "piano", "smoking allowed", "changing table",
+  "dvd player", "lake access", "baby monitor", "movie theater",
+  "record player", "resort access", "theme room", "backyard fully fenced",
+  "hockey rink", "bowling alley", "outdoor shower", "sauna",
+  "boat slip", "kayak", "climbing wall", "skate ramp"
+)
+
+keep_amenities <- union(
+  names(jersey_amenity_counts[jersey_amenity_counts >= min_count]),
+  keep_rare
+)
+
+jersey_data6 <- jersey_data5
+jersey_data6$amenities_filtered <- lapply(jersey_data6$amenities, function(x) {
+  x[x %in% keep_amenities]
+})
+
+jersey_data7 <- jersey_data6 %>%
+  filter(sapply(amenities_filtered, length) > 0)
+
+jersey_step7 <- nrow(jersey_data6)
+jersey_step8 <- nrow(jersey_data7)
+
+
+boston_data4$price_with_tax <- boston_data4$price * (1 + boston_tax_rate)
+boston_data5$price_with_tax <- boston_data5$price * (1 + boston_tax_rate)
+
+jersey_data4$price_with_tax <- jersey_data4$price * (1 + jersey_tax_rate)
+jersey_data5$price_with_tax <- jersey_data5$price * (1 + jersey_tax_rate)
+jersey_data6$price_with_tax <- jersey_data6$price * (1 + jersey_tax_rate)
+jersey_data7$price_with_tax <- jersey_data7$price * (1 + jersey_tax_rate)
+
+
+boston_summary <- data.frame(
+  City = "Boston",
+  Stage = c(
+    "Original",
+    "After removing empty/missing price",
+    "After converting price and removing invalid numeric price",
+    "After removing empty amenities",
+    "After filtering relevant listings",
+    "After amenity cleaning applied",
+    "After removing rows empty after amenity cleaning"
+  ),
+  Count = c(
+    boston_step0, boston_step1, boston_step2,
+    boston_step3, boston_step4, boston_step5, boston_step6
+  )
+)
+
+boston_summary$Percent_of_Original_Remaining <- round(
+  (boston_summary$Count / boston_step0) * 100, 2
+)
+
+boston_summary$Percent_Removed_from_Original <- round(
+  100 - boston_summary$Percent_of_Original_Remaining, 2
+)
+
+jersey_summary <- data.frame(
+  City = "Jersey",
+  Stage = c(
+    "Original",
+    "After removing empty/missing price",
+    "After converting price and removing invalid numeric price",
+    "After removing empty amenities",
+    "After filtering relevant listings",
+    "After amenity cleaning applied",
+    "After removing rows empty after amenity cleaning",
+    "After low-count amenity filter applied",
+    "After removing rows empty after low-count amenity filter"
+  ),
+  Count = c(
+    jersey_step0, jersey_step1, jersey_step2,
+    jersey_step3, jersey_step4, jersey_step5,
+    jersey_step6, jersey_step7, jersey_step8
+  )
+)
+
+jersey_summary$Percent_of_Original_Remaining <- round(
+  (jersey_summary$Count / jersey_step0) * 100, 2
+)
+
+jersey_summary$Percent_Removed_from_Original <- round(
+  100 - jersey_summary$Percent_of_Original_Remaining, 2
+)
+
+cleaning_summary <- rbind(boston_summary, jersey_summary)
+
+print(cleaning_summary)
+
+tax_summary <- data.frame(
+  City = c("Boston", "Jersey"),
+  Tax_Rate = c(boston_tax_rate, jersey_tax_rate),
+  Tax_Rate_Percent = c(boston_tax_rate, jersey_tax_rate) * 100
+)
+
+print(tax_summary)
+
+
+cat("\n=====================================\n")
+cat("FINAL DATA CLEANING SUMMARY\n")
+cat("=====================================\n\n")
+
+cat("Boston final % kept:",
+    round((boston_step6 / boston_step0) * 100, 2), "%\n")
+cat("Boston final % removed:",
+    round(((boston_step0 - boston_step6) / boston_step0) * 100, 2), "%\n")
+cat("Boston tax-adjusted price included at:",
+    boston_tax_rate * 100, "%\n\n")
+
+cat("Jersey final % kept (after amenity cleaning):",
+    round((jersey_step6 / jersey_step0) * 100, 2), "%\n")
+cat("Jersey final % removed (after amenity cleaning):",
+    round(((jersey_step0 - jersey_step6) / jersey_step0) * 100, 2), "%\n")
+cat("Jersey tax-adjusted price included at:",
+    jersey_tax_rate * 100, "%\n\n")
+
+cat("Jersey final % kept (after low-count amenity filter):",
+    round((jersey_step8 / jersey_step0) * 100, 2), "%\n")
+cat("Jersey final % removed (after low-count amenity filter):",
+    round(((jersey_step0 - jersey_step8) / jersey_step0) * 100, 2), "%\n")
+
+
+write.csv(cleaning_summary, "data_cleaning_summary_boston_jersey.csv", row.names = FALSE)
+write.csv(tax_summary, "tax_summary_boston_jersey.csv", row.names = FALSE)
+
+```
+
+```{r}
+library(shiny)
+library(dplyr)
+library(DT)
+library(shinydashboard)
+library(bslib)
+library(shinyWidgets)
+library(ggplot2)
+library(leaflet)
+library(readr)
+
+if (!exists("new_data")) stop("new_data is not loaded.")
+if (!exists("Jersey_data")) stop("Jersey_data is not loaded.")
+
+if (!"amenities_filtered" %in% names(new_data)) {
+  if ("amenities" %in% names(new_data)) {
+    new_data$amenities_filtered <- new_data$amenities
+  } else {
+    stop("Boston data is missing both 'amenities_filtered' and 'amenities'.")
+  }
+}
+
+if (!"amenities_filtered" %in% names(Jersey_data)) {
+  if ("amenities" %in% names(Jersey_data)) {
+    Jersey_data$amenities_filtered <- Jersey_data$amenities
+  } else {
+    stop("Jersey data is missing both 'amenities_filtered' and 'amenities'.")
+  }
+}
+
+prepare_city_data <- function(df, city_name) {
+  region_candidates <- c("neighbourhood_cleansed", "neighbourhood", "zipcode")
+  region_var <- region_candidates[region_candidates %in% names(df)][1]
+
+  if (length(region_var) == 0 || is.na(region_var)) {
+    stop(paste("No valid region field found in", city_name))
+  }
+
+  listing_label_var <- if ("name" %in% names(df)) "name" else names(df)[1]
+
+  if (!("amenities_filtered" %in% names(df))) {
+    stop(paste("The final filtered amenities column 'amenities_filtered' is missing in", city_name))
+  }
+
+  df$latitude <- suppressWarnings(as.numeric(df$latitude))
+  df$longitude <- suppressWarnings(as.numeric(df$longitude))
+  df$price <- suppressWarnings(as.numeric(df$price))
+
+  if ("accommodates" %in% names(df)) {
+    df$accommodates <- suppressWarnings(as.numeric(df$accommodates))
+  }
+
+  out <- df %>%
+    filter(!is.na(latitude), !is.na(longitude), !is.na(price))
+
+  out[[region_var]] <- as.character(out[[region_var]])
+  out[[region_var]][is.na(out[[region_var]]) | trimws(out[[region_var]]) == ""] <- "Unknown"
+  out$City <- city_name
+
+  list(
+    data = out,
+    region_var = region_var,
+    listing_label_var = listing_label_var,
+    amenity_col = "amenities_filtered"
+  )
+}
+
+boston_obj <- prepare_city_data(new_data, "Boston")
+jersey_obj <- prepare_city_data(Jersey_data, "Jersey City")
+
+get_city_obj <- function(city_name) {
+  if (identical(city_name, "Boston")) return(boston_obj)
+  jersey_obj
+}
+
+as_amenity_list <- function(x) {
+  if (is.list(x)) return(x)
+  if (is.character(x)) return(strsplit(x, ",[[:space:]]*"))
+  as.list(x)
+}
+
+safe_mean <- function(x) if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+safe_median <- function(x) if (all(is.na(x))) NA_real_ else median(x, na.rm = TRUE)
+safe_sd <- function(x) if (sum(!is.na(x)) <= 1) NA_real_ else sd(x, na.rm = TRUE)
+fmt_money <- function(x) ifelse(is.na(x), "N/A", paste0("$", format(round(x, 2), big.mark = ",")))
+
+ui <- fluidPage(
+  theme = bs_theme(
+    version = 5,
+    bootswatch = "flatly",
+    primary = "#2563eb",
+    secondary = "#0f172a",
+    success = "#14b8a6",
+    info = "#38bdf8",
+    base_font = font_google("Inter")
+  ),
+  tags$head(
+    tags$style(HTML("
+      body {background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 55%, #ecfeff 100%); color: #0f172a;}
+      .app-shell {max-width: 1540px; margin: 0 auto; padding-bottom: 20px;}
+      .hero-wrap, .theme-panel {background: linear-gradient(135deg, rgba(15,23,42,0.96) 0%, rgba(37,99,235,0.94) 58%, rgba(20,184,166,0.92) 100%); color: white; position: relative; overflow: hidden;}
+      .hero-wrap:before, .theme-panel:before {content: ''; position: absolute; inset: 0; background: radial-gradient(circle at top right, rgba(255,255,255,0.16), transparent 28%), radial-gradient(circle at bottom left, rgba(255,255,255,0.08), transparent 25%);}
+      .hero-wrap {border-radius: 30px; padding: 34px 34px 28px 34px; margin: 10px 0 24px 0; box-shadow: 0 26px 52px rgba(15,23,42,0.18);}
+      .hero-title {position: relative; font-size: 34px; font-weight: 800; margin-bottom: 8px; letter-spacing: -0.03em;}
+      .hero-subtitle {position: relative; font-size: 15px; opacity: 0.96; max-width: 980px; line-height: 1.55;}
+      .sidebar-panel {position: sticky; top: 16px;}
+      .theme-panel {border-radius: 28px; padding: 20px; box-shadow: 0 18px 38px rgba(15,23,42,0.12); border: 1px solid rgba(255,255,255,0.10); backdrop-filter: blur(12px);}
+      .content-card {background: rgba(255,255,255,0.95); border-radius: 28px; padding: 20px; box-shadow: 0 18px 38px rgba(15,23,42,0.08); margin-bottom: 18px; border: 1px solid rgba(226,232,240,0.95); backdrop-filter: blur(10px);}
+      .preview-card {background: linear-gradient(135deg, #ffffff 0%, #eff6ff 52%, #ecfeff 100%); border-radius: 28px; padding: 20px; box-shadow: 0 18px 38px rgba(37,99,235,0.10); margin-bottom: 18px; border: 1px solid rgba(147,197,253,0.40); position: relative; overflow: hidden;}
+      .preview-card:before {content: '✦'; position: absolute; right: 18px; top: 14px; font-size: 22px; color: rgba(37,99,235,0.25);}
+      .control-label {font-weight: 700; color: white; font-size: 13px; margin-bottom: 6px;}
+      .section-title {font-size: 18px; font-weight: 800; color: inherit; margin-bottom: 12px; letter-spacing: -0.02em; position: relative;}
+      .section-subtitle {color: rgba(255,255,255,0.85); font-size: 13px; margin-top: -6px; margin-bottom: 10px; position: relative;}
+      .content-card .section-title, .preview-card .section-title {color: #0f172a;}
+      .content-card .section-subtitle, .preview-card .section-subtitle {color: #64748b;}
+      #map_fallback {border-radius: 22px; overflow: hidden;}
+      .hint-text {color: rgba(255,255,255,0.88); font-size: 0.92rem; margin-top: -2px; margin-bottom: 10px; line-height: 1.45; position: relative;}
+      .content-card .hint-text, .preview-card .hint-text {color: #64748b;}
+      .combo-panel {background: linear-gradient(135deg, rgba(15,23,42,0.96) 0%, rgba(37,99,235,0.94) 58%, rgba(20,184,166,0.92) 100%); color: white; border-radius: 28px; padding: 22px; box-shadow: 0 18px 38px rgba(37,99,235,0.22); position: relative; overflow: hidden;}
+      .combo-panel:before {content: '✧'; position: absolute; right: 18px; top: 14px; font-size: 24px; color: rgba(255,255,255,0.22);}
+      .combo-title {font-size: 18px; font-weight: 800; margin-bottom: 8px; position: relative;}
+      .combo-text {font-size: 14px; line-height: 1.6; position: relative;}
+      .selected-amenities-box {position: relative; margin: 10px 0 12px 0; padding: 12px 14px; border-radius: 16px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.18); color: white;}
+      .selected-amenities-title {font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.88; margin-bottom: 6px;}
+      .selected-amenities-text {font-size: 13px; line-height: 1.5;}
+      .stats-ribbon {background: linear-gradient(135deg, rgba(15,23,42,0.94) 0%, rgba(37,99,235,0.90) 58%, rgba(20,184,166,0.88) 100%); color: white; border-radius: 22px; padding: 14px 18px; box-shadow: 0 12px 24px rgba(15,23,42,0.14); margin-bottom: 14px; display: flex; gap: 14px; justify-content: space-between; flex-wrap: wrap;}
+      .stat-chip {display: flex; align-items: center; gap: 10px; min-width: 160px;}
+      .stat-icon {width: 36px; height: 36px; border-radius: 12px; background: rgba(255,255,255,0.16); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700;}
+      .stat-label {font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.82;}
+      .stat-value {font-size: 18px; font-weight: 800; line-height: 1.1;}
+      .dataTables_wrapper .dataTables_filter {display:none;}
+      .btn, .btn-primary {border-radius: 14px !important; font-weight: 700; border: 0;}
+      .btn-primary {background: linear-gradient(135deg, #2563eb 0%, #14b8a6 100%) !important; box-shadow: 0 10px 20px rgba(37,99,235,0.2);}
+      .btn-primary:hover {filter: brightness(1.03);}
+      .bootstrap-select .dropdown-toggle, .form-control, .selectize-input, .irs--shiny {border-radius: 14px !important;}
+      .theme-panel .bootstrap-select .dropdown-toggle, .theme-panel .form-control, .theme-panel .selectize-input {border: 1px solid rgba(255,255,255,0.18) !important; min-height: 46px; background: rgba(255,255,255,0.92) !important; color: #0f172a !important;}
+      .content-card .bootstrap-select .dropdown-toggle, .content-card .form-control, .content-card .selectize-input, .preview-card .bootstrap-select .dropdown-toggle, .preview-card .form-control, .preview-card .selectize-input {border: 1px solid #dbe4f0 !important; min-height: 46px;}
+      .irs--shiny .irs-bar, .irs--shiny .irs-single, .irs--shiny .irs-from, .irs--shiny .irs-to {background: #2563eb; border-color: #2563eb;}
+      .irs--shiny .irs-handle {border-color: #2563eb;}
+      .map-note {font-size: 12px; color: rgba(255,255,255,0.82); margin-top: 8px;}
+      .content-card .map-note, .preview-card .map-note {color: #64748b;}
+      .map-focus-note {font-size: 12px; color: #64748b; margin-top: 8px;}
+      table {font-size: 14px;}
+    "))
+  ),
+
+  div(
+    class = "app-shell",
+    fluidRow(
+      column(
+        12,
+        div(
+          class = "hero-wrap",
+          div(class = "hero-title", "Student Airbnb Explorer"),
+          div(
+            class = "hero-subtitle",
+            "Explore listings in Boston and Jersey City that meet your preference"
+          )
+        )
+      )
+    ),
+
+    sidebarLayout(
+      sidebarPanel(
+        width = 3,
+        div(
+          class = "sidebar-panel",
+          div(
+            class = "theme-panel",
+            div(class = "section-title", "Search and filters"),
+            div(class = "section-subtitle", "Choose any city, neighborhood, and prefered ameneties from the list below."),
+            selectInput(
+              "city",
+              "Select city",
+              choices = c("All Cities", "Boston", "Jersey City"),
+              selected = "Boston"
+            ),
+            div(class = "hint-text", ""),
+            uiOutput("region_ui"),
+            uiOutput("price_ui"),
+            uiOutput("accommodates_ui"),
+            uiOutput("amenity_ui"),
+            uiOutput("selected_amenities_ui"),
+            div(class = "hint-text", "Listings shown will match all selected amenities at the same time."),
+            uiOutput("listing_ui")
+          )
+        )
+      ),
+
+      mainPanel(
+        width = 9,
+        fluidRow(
+          column(
+            8,
+            div(
+              class = "theme-panel",
+              div(class = "section-title", "Map explorer"),
+              uiOutput("map_stats_ui"),
+              leafletOutput("map_fallback", height = 560),
+              uiOutput("map_note"),
+              div(class = "map-focus-note", "Selecting a specific apartment from the dropdown will smoothly zoom the map to that listing.")
+            )
+          ),
+          column(
+            4,
+            div(class = "combo-panel",
+                h4(class = "combo-title", "Selected amenity combination"),
+                div(class = "combo-text", textOutput("combo_text"))),
+            br(),
+            div(class = "theme-panel",
+                div(class = "section-title", "Area summary"),
+                tableOutput("summary_stats"))
+          )
+        ),
+        fluidRow(
+          column(
+            6,
+            div(
+              class = "content-card",
+              div(class = "section-title", "Price drivers: accommodation and neighborhood"),
+              plotOutput("regression_plot", height = 330),
+              div(class = "section-subtitle", "")
+            )
+          ),
+          column(
+            6,
+            div(
+              class = "preview-card",
+              div(class = "section-title", "Matching listings preview"),
+              div(class = "section-subtitle", ""),
+              DTOutput("combo_table")
+            )
+          )
+        ),
+        div(class = "content-card",
+            div(class = "section-title", "Listings in selected area"),
+            DTOutput("listings_table"))
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  city_obj <- reactive({
+    if (identical(input$city, "All Cities")) return(NULL)
+    get_city_obj(input$city)
+  })
+
+  city_data <- reactive({
+    if (identical(input$city, "All Cities")) {
+      common_cols <- intersect(names(boston_obj$data), names(jersey_obj$data))
+
+      all_df <- dplyr::bind_rows(
+        boston_obj$data[, common_cols, drop = FALSE],
+        jersey_obj$data[, common_cols, drop = FALSE]
+      )
+
+      all_df$region_current <- dplyr::coalesce(
+        if ("neighbourhood_cleansed" %in% names(all_df)) as.character(all_df$neighbourhood_cleansed) else rep(NA_character_, nrow(all_df)),
+        if ("neighbourhood" %in% names(all_df)) as.character(all_df$neighbourhood) else rep(NA_character_, nrow(all_df)),
+        if ("zipcode" %in% names(all_df)) as.character(all_df$zipcode) else rep(NA_character_, nrow(all_df))
+      )
+
+      all_df$region_current[is.na(all_df$region_current) | trimws(all_df$region_current) == ""] <- "Unknown"
+      return(all_df)
+    }
+
+    city_obj()$data
+  })
+
+  listing_label_var_current <- reactive({
+    if (identical(input$city, "All Cities")) {
+      if ("name" %in% names(city_data())) return("name")
+      return(names(city_data())[1])
+    }
+    city_obj()$listing_label_var
+  })
+
+  region_var_current <- reactive({
+    if (identical(input$city, "All Cities")) return("region_current")
+    city_obj()$region_var
+  })
+
+  amenity_col_current <- reactive({
+    "amenities_filtered"
+  })
+
+  output$region_ui <- renderUI({
+    df <- city_data()
+    region_var <- region_var_current()
+
+    choices <- sort(unique(as.character(df[[region_var]])))
+    choices <- choices[!is.na(choices) & trimws(choices) != ""]
+    choices <- c("All Neighborhoods", choices)
+
+    selectizeInput(
+      "region",
+      "Type or select neighborhood",
+      choices = choices,
+      selected = "All Neighborhoods",
+      multiple = FALSE,
+      options = list(
+        placeholder = "Type or select a neighborhood",
+        maxOptions = 1000,
+        create = FALSE,
+        openOnFocus = TRUE,
+        closeAfterSelect = TRUE,
+        selectOnTab = TRUE
+      )
+    )
+  })
+
+  output$price_ui <- renderUI({
+    sliderInput(
+      "price_range",
+      "Price range",
+      min = 0,
+      max = 1000,
+      value = c(0, 1000),
+      step = 1,
+      pre = "$"
+    )
+  })
+
+  output$accommodates_ui <- renderUI({
+    df <- city_data()
+
+    if (!("accommodates" %in% names(df)) || all(is.na(df$accommodates))) {
+      return(NULL)
+    }
+
+    sliderInput(
+      "accommodates_range",
+      "Accommodation size",
+      min = floor(min(df$accommodates, na.rm = TRUE)),
+      max = ceiling(max(df$accommodates, na.rm = TRUE)),
+      value = c(
+        floor(min(df$accommodates, na.rm = TRUE)),
+        ceiling(max(df$accommodates, na.rm = TRUE))
+      ),
+      step = 1
+    )
+  })
+
+  output$amenity_ui <- renderUI({
+    df <- city_data()
+    amenity_col <- amenity_col_current()
+
+    req(amenity_col %in% names(df))
+
+    amenity_list <- as_amenity_list(df[[amenity_col]])
+    vals <- sort(unique(unlist(amenity_list)))
+    vals <- vals[!is.na(vals) & vals != ""]
+
+    pickerInput(
+      "amenity_select",
+      "Select amenities",
+      choices = vals,
+      selected = NULL,
+      multiple = TRUE,
+      options = list(
+        `live-search` = TRUE,
+        `actions-box` = TRUE,
+        size = 10,
+        `selected-text-format` = "count > 3"
+      )
+    )
+  })
+
+  output$selected_amenities_ui <- renderUI({
+    selected <- input$amenity_select
+
+    text <- if (is.null(selected) || length(selected) == 0) {
+      "No amenities selected yet"
+    } else {
+      paste(selected, collapse = " • ")
+    }
+
+    div(
+      class = "selected-amenities-box",
+      div(class = "selected-amenities-title", "Selected amenities"),
+      div(class = "selected-amenities-text", text)
+    )
+  })
+
+  filtered_data <- reactive({
+    req(input$region, input$price_range)
+
+    df <- city_data()
+    amenity_col <- amenity_col_current()
+
+    if (!"region_current" %in% names(df)) {
+      region_var <- region_var_current()
+      df$region_current <- as.character(df[[region_var]])
+    }
+
+    out <- df %>%
+      filter(
+        price >= input$price_range[1],
+        price <= input$price_range[2]
+      )
+
+    if (!identical(input$region, "All Neighborhoods")) {
+      out <- out %>% filter(region_current == input$region)
+    }
+
+    if ("accommodates" %in% names(out) && !is.null(input$accommodates_range)) {
+      out <- out %>%
+        filter(
+          !is.na(accommodates),
+          accommodates >= input$accommodates_range[1],
+          accommodates <= input$accommodates_range[2]
+        )
+    }
+
+    if (!is.null(input$amenity_select) && length(input$amenity_select) > 0) {
+      amenity_list <- as_amenity_list(out[[amenity_col]])
+
+      keep_idx <- vapply(amenity_list, function(x) {
+        x <- x[!is.na(x) & x != ""]
+        if (length(x) == 0) return(FALSE)
+        all(input$amenity_select %in% x)
+      }, logical(1))
+
+      out <- out[keep_idx, , drop = FALSE]
+    }
+
+    out
+  })
+
+  output$listing_ui <- renderUI({
+    df <- filtered_data()
+    if (nrow(df) == 0) return(NULL)
+
+    listing_label_var <- listing_label_var_current()
+
+    labels <- df[[listing_label_var]]
+    labels[is.na(labels) | trimws(labels) == ""] <-
+      paste("Listing", seq_len(nrow(df)))[is.na(labels) | trimws(labels) == ""]
+    labels <- make.unique(as.character(labels))
+
+    pickerInput(
+      "listing_id",
+      "Zoom to apartment",
+      choices = setNames(seq_len(nrow(df)), labels),
+      selected = 1,
+      options = list(`live-search` = TRUE, size = 8)
+    )
+  })
+
+  selected_listing <- reactive({
+    df <- filtered_data()
+    req(nrow(df) > 0, input$listing_id)
+    df[as.integer(input$listing_id), , drop = FALSE]
+  })
+
+  output$map_note <- renderUI({
+    div(class = "map-note", "Interactive map for the currently matching listings in the selected neighborhood.")
+  })
+
+  output$map_stats_ui <- renderUI({
+    df <- filtered_data()
+    n <- nrow(df)
+    avg_price <- safe_mean(df$price)
+    min_price <- if (n > 0) min(df$price, na.rm = TRUE) else NA_real_
+    max_price <- if (n > 0) max(df$price, na.rm = TRUE) else NA_real_
+
+    tags$div(
+      class = "stats-ribbon",
+      tags$div(class = "stat-chip",
+               tags$div(class = "stat-icon", "⌂"),
+               tags$div(
+                 tags$div(class = "stat-label", "Matching listings"),
+                 tags$div(class = "stat-value", n)
+               )),
+      tags$div(class = "stat-chip",
+               tags$div(class = "stat-icon", "∅"),
+               tags$div(
+                 tags$div(class = "stat-label", "Average price"),
+                 tags$div(class = "stat-value", fmt_money(avg_price))
+               )),
+      tags$div(class = "stat-chip",
+               tags$div(class = "stat-icon", "↓"),
+               tags$div(
+                 tags$div(class = "stat-label", "Min price"),
+                 tags$div(class = "stat-value", fmt_money(min_price))
+               )),
+      tags$div(class = "stat-chip",
+               tags$div(class = "stat-icon", "↑"),
+               tags$div(
+                 tags$div(class = "stat-label", "Max price"),
+                 tags$div(class = "stat-value", fmt_money(max_price))
+               ))
+    )
+  })
+
+  output$map_fallback <- renderLeaflet({
+    df <- city_data()
+
+    init_zoom <- if (identical(input$city, "All Cities")) 9 else if (identical(input$city, "Boston")) 11 else 12
+
+    leaflet() %>%
+      addProviderTiles(providers$CartoDB.PositronNoLabels) %>%
+      addProviderTiles(providers$CartoDB.PositronOnlyLabels) %>%
+      setView(
+        lng = mean(df$longitude, na.rm = TRUE),
+        lat = mean(df$latitude, na.rm = TRUE),
+        zoom = init_zoom
+      )
+  })
+
+  observe({
+    df <- filtered_data()
+
+    if (nrow(df) == 0) {
+      leafletProxy("map_fallback") %>% clearMarkers() %>% clearPopups()
+      return()
+    }
+
+    listing_label_var <- listing_label_var_current()
+
+    labels <- df[[listing_label_var]]
+    labels[is.na(labels) | trimws(labels) == ""] <-
+      paste("Listing", seq_len(nrow(df)))[is.na(labels) | trimws(labels) == ""]
+
+    popup_region <- if ("region_current" %in% names(df)) df$region_current else rep("Selected neighborhood", nrow(df))
+
+    popup_text <- paste0(
+      "<div style='font-family:Inter,sans-serif;padding:4px 2px;'><div style='font-weight:800;font-size:14px;margin-bottom:4px;'>", labels, "</div>",
+      "<div><b>City:</b> ", df$City, "</div>",
+      "<div><b>Price:</b> $", round(df$price, 2), "</div>",
+      if ("accommodates" %in% names(df)) paste0("<div><b>Accommodates:</b> ", df$accommodates, "</div>") else "",
+      "<div><b>Neighborhood:</b> ", popup_region, "</div></div>"
+    )
+
+    marker_colors <- ifelse(df$City == "Boston", "#2458E6", "#14B8A6")
+
+    leafletProxy("map_fallback") %>%
+      clearMarkers() %>%
+      clearPopups() %>%
+      addCircleMarkers(
+        lng = df$longitude,
+        lat = df$latitude,
+        radius = 7,
+        weight = 2,
+        stroke = TRUE,
+        color = "#ffffff",
+        fillOpacity = 0.95,
+        fillColor = marker_colors,
+        popup = popup_text,
+        options = pathOptions(riseOnHover = TRUE)
+      ) %>%
+      fitBounds(
+        lng1 = min(df$longitude, na.rm = TRUE),
+        lat1 = min(df$latitude, na.rm = TRUE),
+        lng2 = max(df$longitude, na.rm = TRUE),
+        lat2 = max(df$latitude, na.rm = TRUE)
+      )
+  })
+
+  observe({
+    if (is.null(input$listing_id)) return()
+
+    sl <- selected_listing()
+    req(nrow(sl) == 1)
+
+    listing_label_var <- listing_label_var_current()
+
+    label <- sl[[listing_label_var]][1]
+    if (is.na(label) || !nzchar(trimws(label))) label <- "Listing"
+
+    popup_region <- if ("region_current" %in% names(sl)) sl$region_current[1] else "Selected neighborhood"
+
+    popup_text <- paste0(
+      "<div style='font-family:Inter,sans-serif;padding:4px 2px;'><div style='font-weight:800;font-size:14px;margin-bottom:4px;'>", label, "</div>",
+      "<div><b>City:</b> ", sl$City[1], "</div>",
+      "<div><b>Price:</b> $", round(sl$price[1], 2), "</div>",
+      if ("accommodates" %in% names(sl)) paste0("<div><b>Accommodates:</b> ", sl$accommodates[1], "</div>") else "",
+      "<div><b>Neighborhood:</b> ", popup_region, "</div></div>"
+    )
+
+    leafletProxy("map_fallback") %>%
+      setView(lng = sl$longitude[1], lat = sl$latitude[1], zoom = 17) %>%
+      clearPopups() %>%
+      addPopups(lng = sl$longitude[1], lat = sl$latitude[1], popup = popup_text)
+  })
+
+  output$combo_text <- renderText({
+    combo_text(input$amenity_select)
+  })
+
+  output$summary_stats <- renderTable({
+    df <- filtered_data()
+
+    if (nrow(df) == 0) {
+      return(data.frame(Metric = "No matching listings", Value = "Adjust your amenity or price filters"))
+    }
+
+    stats <- data.frame(
+      Metric = c("Listings", "Average price", "Median price", "SD price", "Min price", "Max price"),
+      Value = c(
+        nrow(df),
+        round(safe_mean(df$price), 2),
+        round(safe_median(df$price), 2),
+        round(safe_sd(df$price), 2),
+        round(min(df$price, na.rm = TRUE), 2),
+        round(max(df$price, na.rm = TRUE), 2)
+      )
+    )
+
+    if ("accommodates" %in% names(df)) {
+      stats <- rbind(
+        stats,
+        data.frame(
+          Metric = c("Average accommodates", "Median accommodates"),
+          Value = c(
+            round(safe_mean(df$accommodates), 2),
+            round(safe_median(df$accommodates), 2)
+          )
+        )
+      )
+    }
+
+    stats
+  }, bordered = TRUE, striped = TRUE, spacing = "m")
+
+  output$regression_plot <- renderPlot({
+    df <- city_data()
+    req(nrow(df) > 10, "accommodates" %in% names(df))
+
+    if (!"region_current" %in% names(df)) {
+      region_var <- region_var_current()
+      df$region_current <- as.character(df[[region_var]])
+    }
+
+    model_df <- df %>%
+      filter(
+        !is.na(price),
+        !is.na(accommodates),
+        !is.na(region_current)
+      ) %>%
+      mutate(region_group = region_current)
+
+    req(nrow(model_df) > 10)
+
+    region_counts <- sort(table(model_df$region_group), decreasing = TRUE)
+    keep_regions <- names(region_counts)[seq_len(min(6, length(region_counts)))]
+    model_df$region_group <- ifelse(model_df$region_group %in% keep_regions, model_df$region_group, "Other")
+    model_df$region_group <- factor(model_df$region_group)
+
+    fit <- lm(price ~ accommodates + region_group, data = model_df)
+
+    coef_df <- data.frame(
+      term = names(coef(fit)),
+      estimate = as.numeric(coef(fit)),
+      stringsAsFactors = FALSE
+    )
+
+    coef_df <- coef_df %>%
+      filter(term != "(Intercept)") %>%
+      mutate(
+        term = ifelse(term == "accommodates", "Accommodates", gsub("region_group", "Neighborhood: ", term)),
+        term = factor(term, levels = rev(term))
+      )
+
+    ggplot(coef_df, aes(x = estimate, y = term, fill = estimate > 0)) +
+      geom_col(show.legend = FALSE, width = 0.65) +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "#94a3b8") +
+      labs(
+        title = paste("Regression view for", input$city),
+        x = "Estimated effect on price",
+        y = NULL
+      ) +
+      scale_fill_manual(values = c("TRUE" = "#14B8A6", "FALSE" = "#2563EB")) +
+      theme_minimal(base_size = 12) +
+      theme(
+        plot.title = element_text(face = "bold"),
+        panel.grid.minor = element_blank()
+      )
+  })
+
+  output$combo_table <- renderDT({
+    df <- filtered_data()
+    listing_label_var <- listing_label_var_current()
+    amenity_col <- amenity_col_current()
+
+    if (nrow(df) == 0) {
+      preview_df <- data.frame(Message = "No listings match all selected amenities.")
+      return(datatable(preview_df, options = list(dom = "t"), rownames = FALSE))
+    }
+
+    amenity_list <- as_amenity_list(df[[amenity_col]])
+    df$selected_amenities <- vapply(
+      amenity_list,
+      function(x) paste(x, collapse = " • "),
+      character(1)
+    )
+
+    preview_df <- df %>%
+      select(any_of(c(
+        listing_label_var,
+        "City",
+        "price",
+        "accommodates",
+        "region_current",
+        "selected_amenities"
+      ))) %>%
+      head(8)
+
+    datatable(
+      preview_df,
+      options = list(pageLength = 5, scrollX = TRUE, dom = "t"),
+      rownames = FALSE,
+      class = "compact stripe hover"
+    )
+  })
+
+  output$listings_table <- renderDT({
+    df <- filtered_data()
+    listing_label_var <- listing_label_var_current()
+    amenity_col <- amenity_col_current()
+
+    if (nrow(df) == 0) {
+      empty_df <- data.frame(Message = "No listings match the current filters.")
+      return(datatable(empty_df, options = list(dom = "t"), rownames = FALSE))
+    }
+
+    amenity_list <- as_amenity_list(df[[amenity_col]])
+    df$selected_amenities <- vapply(
+      amenity_list,
+      function(x) paste(x, collapse = " • "),
+      character(1)
+    )
+
+    df <- df %>%
+      select(any_of(c(
+        listing_label_var,
+        "City",
+        "region_current",
+        "price",
+        "accommodates",
+        "room_type",
+        "selected_amenities"
+      )))
+
+    datatable(
+      df,
+      options = list(pageLength = 6, scrollX = TRUE, dom = "tip"),
+      rownames = FALSE,
+      class = "compact stripe hover"
+    )
+  })
+}
+
+shinyApp(ui, server)
+
+```
+
+
+```{r}
+library(shiny)
+library(bslib)
+library(dplyr)
+library(readr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(plotly)
+library(DT)
+library(sf)
+library(scales)
+library(htmltools)
+library(RColorBrewer)
+library(mapgl)
+
+
+BOSTON_FILE <- "listings_Boston.csv"
+JERSEY_FILE <- "listings_Jersey.csv"
+MAX_PRICE <- 1000
+
+clean_price <- function(x) {
+  x <- gsub("[,$ ]", "", x)
+  suppressWarnings(as.numeric(x))
+}
+
+pick_region_var <- function(df) {
+  candidates <- c("neighbourhood_cleansed", "neighbourhood", "zipcode")
+  found <- candidates[candidates %in% names(df)]
+  if (length(found) == 0) stop("No neighborhood-like column found.")
+  found[1]
+}
+
+pick_name_var <- function(df) {
+  candidates <- c("name", "listing_url", "id")
+  found <- candidates[candidates %in% names(df)]
+  if (length(found) == 0) names(df)[1] else found[1]
+}
+
+safe_num <- function(x) suppressWarnings(as.numeric(x))
+
+normalize_city_data <- function(df, city_name) {
+  region_var <- pick_region_var(df)
+  name_var   <- pick_name_var(df)
+
+  if ("price" %in% names(df)) {
+    df$price <- clean_price(df$price)
+  } else {
+    stop(paste("Missing `price` column in", city_name))
+  }
+
+  if ("latitude" %in% names(df)) df$latitude <- safe_num(df$latitude)
+  if ("longitude" %in% names(df)) df$longitude <- safe_num(df$longitude)
+  if ("accommodates" %in% names(df)) df$accommodates <- safe_num(df$accommodates)
+  if ("bedrooms" %in% names(df)) df$bedrooms <- safe_num(df$bedrooms)
+  if ("beds" %in% names(df)) df$beds <- safe_num(df$beds)
+
+  if ("bathrooms" %in% names(df)) {
+    if (is.character(df$bathrooms)) {
+      df$bathrooms_num <- readr::parse_number(df$bathrooms)
+    } else {
+      df$bathrooms_num <- safe_num(df$bathrooms)
+    }
+  } else {
+    df$bathrooms_num <- NA_real_
+  }
+
+  if (!("amenities" %in% names(df))) df$amenities <- ""
+
+  df %>%
+    mutate(
+      city = city_name,
+      neighbourhood_key = as.character(.data[[region_var]]),
+      listing_label = as.character(.data[[name_var]])
+    ) %>%
+    mutate(
+      neighbourhood_key = ifelse(
+        is.na(neighbourhood_key) | trimws(neighbourhood_key) == "",
+        "Unknown",
+        neighbourhood_key
+      ),
+      listing_label = ifelse(
+        is.na(listing_label) | trimws(listing_label) == "",
+        paste("Listing", row_number()),
+        listing_label
+      )
+    ) %>%
+    filter(
+      !is.na(price),
+      price > 0,
+      price <= MAX_PRICE,
+      !is.na(latitude),
+      !is.na(longitude)
+    )
+}
+
+detect_amenity <- function(x, pattern) {
+  str_detect(str_to_lower(coalesce(x, "")), pattern)
+}
+
+prepare_listing_features <- function(df) {
+  df %>%
+    mutate(
+      has_wifi = detect_amenity(amenities, "wifi|ethernet"),
+      has_kitchen = detect_amenity(amenities, "kitchen"),
+      has_parking = detect_amenity(amenities, "parking|garage|carport|driveway|street parking"),
+      has_ac = detect_amenity(amenities, "air conditioning|ceiling fan|portable fans|window ac|central air"),
+      has_pool = detect_amenity(amenities, "pool"),
+      has_gym = detect_amenity(amenities, "gym|exercise equipment|free weights|treadmill|yoga"),
+      has_tv = detect_amenity(amenities, "tv|television|hdtv|roku|chromecast"),
+      has_washer = detect_amenity(amenities, "washer"),
+      has_dryer = detect_amenity(amenities, "dryer"),
+      has_elevator = detect_amenity(amenities, "elevator"),
+      has_workspace = detect_amenity(amenities, "dedicated workspace"),
+      has_pets_allowed = detect_amenity(amenities, "pets allowed")
+    )
+}
+
+aggregate_neighborhoods <- function(df) {
+  df %>%
+    group_by(city, neighbourhood_key) %>%
+    summarise(
+      n_listings = n(),
+      mean_price = mean(price, na.rm = TRUE),
+      median_price = median(price, na.rm = TRUE),
+      min_price = min(price, na.rm = TRUE),
+      max_price = max(price, na.rm = TRUE),
+      q1_price = quantile(price, 0.25, na.rm = TRUE),
+      q3_price = quantile(price, 0.75, na.rm = TRUE),
+      sd_price = sd(price, na.rm = TRUE),
+      mean_accommodates = mean(accommodates, na.rm = TRUE),
+      mean_bedrooms = mean(bedrooms, na.rm = TRUE),
+      mean_beds = mean(beds, na.rm = TRUE),
+      mean_bathrooms = mean(bathrooms_num, na.rm = TRUE),
+      wifi_rate = mean(has_wifi, na.rm = TRUE),
+      kitchen_rate = mean(has_kitchen, na.rm = TRUE),
+      parking_rate = mean(has_parking, na.rm = TRUE),
+      ac_rate = mean(has_ac, na.rm = TRUE),
+      pool_rate = mean(has_pool, na.rm = TRUE),
+      gym_rate = mean(has_gym, na.rm = TRUE),
+      tv_rate = mean(has_tv, na.rm = TRUE),
+      washer_rate = mean(has_washer, na.rm = TRUE),
+      dryer_rate = mean(has_dryer, na.rm = TRUE),
+      elevator_rate = mean(has_elevator, na.rm = TRUE),
+      workspace_rate = mean(has_workspace, na.rm = TRUE),
+      pets_rate = mean(has_pets_allowed, na.rm = TRUE),
+      latitude = mean(latitude, na.rm = TRUE),
+      longitude = mean(longitude, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(across(where(is.numeric), ~replace_na(., 0)))
+}
+
+assign_price_tier <- function(x) {
+  u <- unique(na.omit(x))
+  if (length(u) < 3) {
+    return(factor(rep("Medium", length(x)),
+      levels = c("Affordable", "Medium", "Expensive")
+    ))
+  }
+
+  brks <- unique(as.numeric(quantile(x, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)))
+  if (length(brks) < 4) {
+    rk <- rank(x, ties.method = "average")
+    grp <- ntile(rk, 3)
+    out <- c("Affordable", "Medium", "Expensive")[grp]
+    return(factor(out, levels = c("Affordable", "Medium", "Expensive")))
+  }
+
+  cut(
+    x,
+    breaks = brks,
+    include.lowest = TRUE,
+    labels = c("Affordable", "Medium", "Expensive")
+  )
+}
+
+cluster_neighborhoods <- function(df, k = 3, price_basis = "median_price") {
+  feature_vars <- c(
+    "median_price",
+    "sd_price",
+    "mean_accommodates",
+    "wifi_rate",
+    "parking_rate",
+    "gym_rate",
+    "elevator_rate"
+  )
+
+  feature_vars <- feature_vars[feature_vars %in% names(df)]
+  x <- df[, feature_vars, drop = FALSE]
+  x[is.na(x)] <- 0
+  x_scaled <- scale(x)
+
+  set.seed(123)
+  km <- kmeans(x_scaled, centers = k, nstart = 50)
+
+  df %>%
+    mutate(
+      cluster_id = km$cluster,
+      cluster = paste0("Cluster ", km$cluster),
+      price_tier = assign_price_tier(.data[[price_basis]])
+    )
+}
+
+compute_pca_payload <- function(df) {
+  vars <- c(
+    "median_price", "sd_price", "mean_accommodates",
+    "wifi_rate", "parking_rate", "gym_rate", "elevator_rate"
+  )
+  vars <- vars[vars %in% names(df)]
+
+  x <- df[, vars, drop = FALSE]
+  x <- x[, apply(x, 2, function(col) sd(col, na.rm = TRUE) > 0), drop = FALSE]
+
+  if (ncol(x) < 2) {
+    return(list(
+      scores = data.frame(),
+      loadings = data.frame(),
+      variance = c(PC1 = NA_real_, PC2 = NA_real_, PC3 = NA_real_)
+    ))
+  }
+
+  pca <- prcomp(x, center = TRUE, scale. = TRUE)
+
+  scores <- as.data.frame(pca$x[, seq_len(min(3, ncol(pca$x))), drop = FALSE])
+  if (!("PC1" %in% names(scores))) scores$PC1 <- 0
+  if (!("PC2" %in% names(scores))) scores$PC2 <- 0
+  if (!("PC3" %in% names(scores))) scores$PC3 <- 0
+
+  scores <- scores %>%
+    mutate(
+      city = df$city,
+      neighbourhood_key = df$neighbourhood_key,
+      cluster = df$cluster,
+      price_tier = df$price_tier,
+      median_price = df$median_price,
+      n_listings = df$n_listings,
+      low_listing_flag = df$low_listing_flag
+    )
+
+  loadings <- as.data.frame(pca$rotation[, seq_len(min(3, ncol(pca$rotation))), drop = FALSE])
+  if (!("PC1" %in% names(loadings))) loadings$PC1 <- 0
+  if (!("PC2" %in% names(loadings))) loadings$PC2 <- 0
+  if (!("PC3" %in% names(loadings))) loadings$PC3 <- 0
+  loadings$variable <- rownames(loadings)
+
+  imp <- summary(pca)$importance
+  variance <- c(
+    PC1 = ifelse(ncol(imp) >= 1, imp[2, 1], NA_real_),
+    PC2 = ifelse(ncol(imp) >= 2, imp[2, 2], NA_real_),
+    PC3 = ifelse(ncol(imp) >= 3, imp[2, 3], NA_real_)
+  )
+
+  list(scores = scores, loadings = loadings, variance = variance)
+}
+
+make_popup_html <- function(df) {
+  warn_line <- ifelse(
+    df$low_listing_flag,
+    "<div style='color:#92400E; font-weight:700;'>Low listing count: interpret with caution</div>",
+    ""
+  )
+
+  paste0(
+    "<div style='font-family:Inter,Arial,sans-serif;'>",
+    "<div style='font-weight:800;font-size:14px;margin-bottom:6px;'>", htmlEscape(df$neighbourhood_key), "</div>",
+    "<div><b>City:</b> ", htmlEscape(df$city), "</div>",
+    "<div><b>Listings:</b> ", comma(df$n_listings), "</div>",
+    "<div><b>Mean price:</b> $", comma(round(df$mean_price, 0)), "</div>",
+    "<div><b>Median price:</b> $", comma(round(df$median_price, 0)), "</div>",
+    "<div><b>Min:</b> $", comma(round(df$min_price, 0)), "</div>",
+    "<div><b>Max:</b> $", comma(round(df$max_price, 0)), "</div>",
+    "<div><b>Cluster:</b> ", htmlEscape(df$cluster), "</div>",
+    "<div><b>Price tier:</b> ", htmlEscape(as.character(df$price_tier)), "</div>",
+    warn_line,
+    "</div>"
+  )
+}
+
+tier_palette <- c(
+  "Affordable" = "#10B981",
+  "Medium" = "#F59E0B",
+  "Expensive" = "#EF4444"
+)
+
+cluster_palette <- function(n) {
+  cols <- brewer.pal(max(3, min(8, n)), "Set2")
+  cols[seq_len(n)]
+}
+
+
+if (!file.exists(BOSTON_FILE)) stop(paste("Missing file:", BOSTON_FILE))
+if (!file.exists(JERSEY_FILE)) stop(paste("Missing file:", JERSEY_FILE))
+
+boston_raw <- read_csv(BOSTON_FILE, show_col_types = FALSE)
+jersey_raw <- read_csv(JERSEY_FILE, show_col_types = FALSE)
+
+boston <- normalize_city_data(boston_raw, "Boston")
+jersey <- normalize_city_data(jersey_raw, "Jersey City")
+
+listings_all <- bind_rows(boston, jersey) %>%
+  prepare_listing_features()
+
+neighborhoods_base <- aggregate_neighborhoods(listings_all)
+
+
+app_theme <- bs_theme(
+  version = 5,
+  bootswatch = "minty",
+  primary = "#2563EB",
+  secondary = "#7C3AED",
+  success = "#10B981",
+  base_font = font_google("Inter"),
+  heading_font = font_google("Inter")
+)
+
+ui <- page_navbar(
+  title = div(style = "font-weight:800;", "Airbnb Price Clustering Explorer"),
+  theme = app_theme,
+  fillable = TRUE,
+  sidebar = sidebar(
+    width = 360,
+    bg = "#F8FAFC",
+    tags$div(
+      style = "font-weight:800;font-size:1.1rem;margin-bottom:8px;",
+      "Controls"
+    ),
+    selectInput(
+      "city_filter", "City",
+      choices = c("All", "Boston", "Jersey City"),
+      selected = "All"
+    ),
+    sliderInput(
+      "min_listings", "Low-listing warning threshold",
+      min = 1, max = max(neighborhoods_base$n_listings, na.rm = TRUE),
+      value = 5, step = 1
+    ),
+    selectInput(
+      "price_basis", "Price basis for tiering",
+      choices = c(
+        "Median price" = "median_price",
+        "Mean price" = "mean_price",
+        "Low price" = "min_price",
+        "High price" = "max_price"
+      ),
+      selected = "median_price"
+    ),
+    numericInput(
+      "n_clusters", "Number of clusters",
+      value = 3, min = 2, max = 5, step = 1
+    ),
+    selectInput(
+      "color_by", "Map color",
+      choices = c("Price tier" = "price_tier", "Cluster" = "cluster"),
+      selected = "price_tier"
+    ),
+    sliderInput(
+      "median_range", "Median price filter",
+      min = floor(min(neighborhoods_base$median_price, na.rm = TRUE)),
+      max = ceiling(max(neighborhoods_base$median_price, na.rm = TRUE)),
+      value = c(
+        floor(min(neighborhoods_base$median_price, na.rm = TRUE)),
+        ceiling(max(neighborhoods_base$median_price, na.rm = TRUE))
+      ),
+      step = 1,
+      pre = "$"
+    ),
+    selectizeInput(
+      "neighborhood_select", "Neighborhoods",
+      choices = sort(unique(neighborhoods_base$neighbourhood_key)),
+      selected = NULL,
+      multiple = TRUE,
+      options = list(placeholder = "All neighborhoods")
+    ),
+    hr(),
+    uiOutput("low_listing_warning"),
+    tags$div(
+      style = "font-size:0.9rem;color:#475569;",
+      "Neighborhoods are never hidden for having few listings. Low-count areas are flagged instead."
+    )
+  ),
+
+  nav_panel(
+    "Map",
+    layout_columns(
+      col_widths = c(4, 4, 4),
+      value_box(
+        title = "Neighborhoods shown",
+        value = textOutput("vb_nhoods"),
+        showcase = NULL,
+        theme = "primary"
+      ),
+      value_box(
+        title = "Median of neighborhood medians",
+        value = textOutput("vb_median"),
+        showcase = NULL,
+        theme = "success"
+      ),
+      value_box(
+        title = "Clusters",
+        value = textOutput("vb_clusters"),
+        showcase = NULL,
+        theme = "secondary"
+      )
+    ),
+    card(
+      full_screen = TRUE,
+      style = "border-radius:20px;",
+      card_body(
+        mapgl::maplibreOutput("price_map", height = "720px")
+      )
+    )
+  ),
+
+  nav_panel(
+    "PCA",
+    layout_columns(
+      col_widths = c(7, 5),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("PCA scores"),
+        plotlyOutput("pca_scores", height = "620px")
+      ),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("PCA loadings"),
+        plotlyOutput("pca_loadings", height = "620px")
+      )
+    )
+  ),
+
+  nav_panel(
+    "Tables",
+    layout_columns(
+      col_widths = c(12),
+      card(
+        style = "border-radius:20px;",
+        card_header("Neighborhood summary"),
+        DTOutput("summary_table")
+      ),
+      card(
+        style = "border-radius:20px;",
+        card_header("Listings in selected neighborhoods"),
+        DTOutput("listing_table")
+      )
+    )
+  ),
+
+  nav_panel(
+    "Diagnostics",
+    layout_columns(
+      col_widths = c(6, 6),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Neighborhood price distribution"),
+        plotlyOutput("price_hist", height = "420px")
+      ),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Cluster vs median price"),
+        plotlyOutput("cluster_box", height = "420px")
+      )
+    ),
+    layout_columns(
+      col_widths = c(6, 6),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Mean vs median price"),
+        plotlyOutput("scatter_price", height = "420px")
+      ),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Amenities summary"),
+        plotlyOutput("amenity_bars", height = "420px")
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  clustered_data <- reactive({
+    df <- neighborhoods_base
+
+    if (!identical(input$city_filter, "All")) {
+      df <- df %>% filter(city == input$city_filter)
+    }
+
+    df <- df %>%
+      filter(
+        n_listings >= input$min_listings,
+        median_price >= input$median_range[1],
+        median_price <= input$median_range[2]
+      )
+
+    if (!is.null(input$neighborhood_select) && length(input$neighborhood_select) > 0) {
+      df <- df %>% filter(neighbourhood_key %in% input$neighborhood_select)
+    }
+
+    validate(need(nrow(df) >= input$n_clusters, "Not enough neighborhoods for the selected number of clusters."))
+
+    cluster_neighborhoods(
+      df = df,
+      k = input$n_clusters,
+      price_basis = input$price_basis
+    )
+  })
+
+  pca_payload <- reactive({
+    compute_pca_payload(clustered_data())
+  })
+
+  listings_filtered <- reactive({
+    nhoods <- clustered_data() %>% pull(neighbourhood_key)
+    cities <- clustered_data() %>% distinct(city) %>% pull(city)
+
+    listings_all %>%
+      filter(
+        city %in% cities,
+        neighbourhood_key %in% nhoods,
+        !is.na(latitude),
+        !is.na(longitude)
+      )
+  })
+
+  output$vb_nhoods <- renderText({
+    comma(nrow(clustered_data()))
+  })
+
+  output$vb_median <- renderText({
+    paste0("$", comma(round(median(clustered_data()$median_price, na.rm = TRUE), 0)))
+  })
+
+  output$vb_clusters <- renderText({
+    length(unique(clustered_data()$cluster))
+  })
+
+
+  output$price_map <- renderMaplibre({
+    neigh_df <- clustered_data()
+    list_df  <- listings_filtered()
+
+    validate(need(nrow(list_df) > 0, "No listing locations to map."))
+
+    # attach cluster and tier from neighborhood-level clustering
+    list_df <- list_df %>%
+      left_join(
+        neigh_df %>%
+          select(city, neighbourhood_key, cluster, price_tier, median_price),
+        by = c("city", "neighbourhood_key")
+      )
+
+    list_sf <- st_as_sf(
+      list_df,
+      coords = c("longitude", "latitude"),
+      crs = 4326,
+      remove = FALSE
+    )
+
+    list_sf$popup_html <- paste0(
+      "<div style='font-family:Inter,Arial,sans-serif;'>",
+      "<div style='font-weight:800;font-size:14px;margin-bottom:6px;'>", htmlEscape(list_sf$listing_label), "</div>",
+      "<div><b>City:</b> ", htmlEscape(list_sf$city), "</div>",
+      "<div><b>Neighborhood:</b> ", htmlEscape(list_sf$neighbourhood_key), "</div>",
+      "<div><b>Listing price:</b> $", comma(round(list_sf$price, 0)), "</div>",
+      if ("accommodates" %in% names(list_sf)) paste0("<div><b>Accommodates:</b> ", list_sf$accommodates, "</div>") else "",
+      "<div><b>Neighborhood cluster:</b> ", htmlEscape(list_sf$cluster), "</div>",
+      "<div><b>Price tier:</b> ", htmlEscape(as.character(list_sf$price_tier)), "</div>",
+      "</div>"
+    )
+
+    if (identical(input$color_by, "price_tier")) {
+      circle_colors <- mapgl::match_expr(
+        "price_tier",
+        values = names(tier_palette),
+        stops = unname(tier_palette)
+      )
+      legend_values <- names(tier_palette)
+      legend_colors <- unname(tier_palette)
+      legend_title <- "Price tier"
+    } else {
+      clust_vals <- sort(unique(list_sf$cluster))
+      clust_cols <- cluster_palette(length(clust_vals))
+      circle_colors <- mapgl::match_expr(
+        "cluster",
+        values = clust_vals,
+        stops = clust_cols
+      )
+      legend_values <- clust_vals
+      legend_colors <- clust_cols
+      legend_title <- "Cluster"
+    }
+
+    # radius based on actual listing price
+    rad <- mapgl::interpolate(
+      column = "price",
+      values = c(min(list_sf$price, na.rm = TRUE), max(list_sf$price, na.rm = TRUE)),
+      stops = c(5, 14)
+    )
+
+    mapgl::maplibre(
+      style = mapgl::carto_style("positron"),
+      center = c(mean(list_sf$longitude, na.rm = TRUE), mean(list_sf$latitude, na.rm = TRUE)),
+      zoom = ifelse(length(unique(list_sf$city)) == 1, 11, 8)
+    ) %>%
+      mapgl::add_navigation_control() %>%
+      mapgl::add_fullscreen_control() %>%
+      mapgl::add_circle_layer(
+        id = "listing_points",
+        source = list_sf,
+        circle_color = circle_colors,
+        circle_radius = rad,
+        circle_opacity = 0.82,
+        circle_stroke_color = "#FFFFFF",
+        circle_stroke_width = 1.1,
+        popup = "popup_html",
+        tooltip = "listing_label",
+        hover_options = list(
+          circle_radius = 18,
+          circle_opacity = 1
+        )
+      ) %>%
+      mapgl::add_categorical_legend(
+        legend_title = legend_title,
+        values = legend_values,
+        colors = legend_colors,
+        circular_patches = TRUE
+      )
+  })
+
+  output$pca_scores <- renderPlotly({
+    scores <- pca_payload()$scores
+
+    validate(need(nrow(scores) > 0, "PCA unavailable for the current filter."))
+
+    plot_ly(
+      data = scores,
+      x = ~PC1,
+      y = ~PC2,
+      type = "scatter",
+      mode = "markers",
+      color = ~price_tier,
+      colors = tier_palette,
+      symbol = ~cluster,
+      symbols = c("circle", "square", "diamond", "x", "triangle-up", "cross", "star", "triangle-down"),
+      size = ~median_price,
+      sizes = c(10, 30),
+      text = ~paste0(
+        "<b>", neighbourhood_key, "</b>",
+        "<br>City: ", city,
+        "<br>Median price: $", comma(round(median_price, 0)),
+        "<br>Listings: ", comma(n_listings),
+        "<br>Cluster: ", cluster,
+        "<br>Tier: ", price_tier
+      ),
+      hovertemplate = "%{text}<br>PC1=%{x:.2f}<br>PC2=%{y:.2f}<extra></extra>"
+    ) %>%
+      layout(
+        title = paste0(
+          "PCA scores",
+          "<br><sup>Explained variance: PC1 = ",
+          percent(pca_payload()$variance["PC1"], accuracy = 0.1),
+          ", PC2 = ",
+          percent(pca_payload()$variance["PC2"], accuracy = 0.1),
+          "</sup>"
+        ),
+        xaxis = list(title = "PC1"),
+        yaxis = list(title = "PC2"),
+        legend = list(orientation = "h", x = 0, y = -0.15)
+      )
+  })
+
+  output$pca_loadings <- renderPlotly({
+    loadings <- pca_payload()$loadings
+
+    validate(need(nrow(loadings) > 0, "PCA loadings unavailable for the current filter."))
+
+    plot_ly(
+      data = loadings,
+      x = ~PC1,
+      y = ~PC2,
+      type = "scatter",
+      mode = "markers+text",
+      text = ~variable,
+      textposition = "top center",
+      hovertemplate = paste0(
+        "<b>%{text}</b>",
+        "<br>PC1 = %{x:.3f}",
+        "<br>PC2 = %{y:.3f}<extra></extra>"
+      )
+    ) %>%
+      add_segments(
+        x = 0, y = 0,
+        xend = ~PC1, yend = ~PC2,
+        inherit = FALSE,
+        showlegend = FALSE
+      ) %>%
+      layout(
+        title = "PCA loadings",
+        xaxis = list(title = "PC1", zeroline = TRUE),
+        yaxis = list(title = "PC2", zeroline = TRUE)
+      )
+  })
+
+  output$summary_table <- renderDT({
+    df <- clustered_data() %>%
+      mutate(price_tier = as.character(price_tier)) %>%
+      select(
+        city, neighbourhood_key, n_listings, cluster, price_tier,
+        mean_price, median_price, min_price, max_price, q1_price, q3_price, sd_price,
+        mean_accommodates, mean_bedrooms, mean_beds, mean_bathrooms,
+        wifi_rate, kitchen_rate, parking_rate, ac_rate, pool_rate,
+        gym_rate, tv_rate, washer_rate, dryer_rate, elevator_rate,
+        workspace_rate, pets_rate
+      ) %>%
+      arrange(desc(median_price))
+
+    datatable(
+      df,
+      rownames = FALSE,
+      extensions = "Buttons",
+      options = list(
+        pageLength = 12,
+        scrollX = TRUE,
+        dom = "Bfrtip",
+        buttons = c("copy", "csv", "excel")
+      )
+    ) %>%
+      formatCurrency(c("mean_price", "median_price", "min_price", "max_price", "q1_price", "q3_price"), currency = "$", digits = 0) %>%
+      formatRound(c("sd_price", "mean_accommodates", "mean_bedrooms", "mean_beds", "mean_bathrooms"), 2) %>%
+      formatPercentage(
+        c("wifi_rate", "kitchen_rate", "parking_rate", "ac_rate", "pool_rate",
+          "gym_rate", "tv_rate", "washer_rate", "dryer_rate", "elevator_rate",
+          "workspace_rate", "pets_rate"), 1
+      )
+  })
+
+  output$listing_table <- renderDT({
+    df <- listings_filtered() %>%
+      select(
+        city, neighbourhood_key, listing_label, price,
+        accommodates, bedrooms, beds, bathrooms_num,
+        latitude, longitude
+      ) %>%
+      arrange(desc(price))
+
+    datatable(
+      df,
+      rownames = FALSE,
+      extensions = "Buttons",
+      options = list(
+        pageLength = 12,
+        scrollX = TRUE,
+        dom = "Bfrtip",
+        buttons = c("copy", "csv", "excel")
+      )
+    ) %>%
+      formatCurrency("price", currency = "$", digits = 0) %>%
+      formatRound(c("bathrooms_num", "latitude", "longitude"), 4)
+  })
+
+  output$price_hist <- renderPlotly({
+    df <- clustered_data()
+
+    plot_ly(
+      data = df,
+      x = ~median_price,
+      color = ~price_tier,
+      colors = tier_palette,
+      type = "histogram"
+    ) %>%
+      layout(
+        title = "Distribution of neighborhood median prices",
+        xaxis = list(title = "Neighborhood median price"),
+        yaxis = list(title = "Count")
+      )
+  })
+
+  output$cluster_box <- renderPlotly({
+    df <- clustered_data()
+
+    plot_ly(
+      data = df,
+      x = ~cluster,
+      y = ~median_price,
+      color = ~cluster,
+      type = "box",
+      boxpoints = "all",
+      jitter = 0.2,
+      pointpos = 0
+    ) %>%
+      layout(
+        title = "Median price by cluster",
+        xaxis = list(title = "Cluster"),
+        yaxis = list(title = "Neighborhood median price")
+      )
+  })
+
+  output$scatter_price <- renderPlotly({
+    df <- clustered_data()
+
+    plot_ly(
+      data = df,
+      x = ~mean_price,
+      y = ~median_price,
+      color = ~price_tier,
+      colors = tier_palette,
+      type = "scatter",
+      mode = "markers",
+      text = ~paste0(
+        "<b>", neighbourhood_key, "</b>",
+        "<br>City: ", city,
+        "<br>Cluster: ", cluster,
+        "<br>Mean: $", comma(round(mean_price, 0)),
+        "<br>Median: $", comma(round(median_price, 0))
+      ),
+      hovertemplate = "%{text}<extra></extra>"
+    ) %>%
+      layout(
+        title = "Mean vs median neighborhood price",
+        xaxis = list(title = "Mean price"),
+        yaxis = list(title = "Median price")
+      )
+  })
+
+  output$amenity_bars <- renderPlotly({
+    df <- clustered_data()
+
+    amenity_df <- df %>%
+      summarise(
+        WiFi = mean(wifi_rate, na.rm = TRUE),
+        Kitchen = mean(kitchen_rate, na.rm = TRUE),
+        Parking = mean(parking_rate, na.rm = TRUE),
+        AC = mean(ac_rate, na.rm = TRUE),
+        Pool = mean(pool_rate, na.rm = TRUE),
+        Gym = mean(gym_rate, na.rm = TRUE),
+        TV = mean(tv_rate, na.rm = TRUE),
+        Washer = mean(washer_rate, na.rm = TRUE),
+        Dryer = mean(dryer_rate, na.rm = TRUE),
+        Elevator = mean(elevator_rate, na.rm = TRUE),
+        Workspace = mean(workspace_rate, na.rm = TRUE),
+        Pets = mean(pets_rate, na.rm = TRUE)
+      ) %>%
+      pivot_longer(everything(), names_to = "amenity", values_to = "rate")
+
+    plot_ly(
+      data = amenity_df,
+      x = ~reorder(amenity, rate),
+      y = ~rate,
+      type = "bar"
+    ) %>%
+      layout(
+        title = "Average amenity presence across shown neighborhoods",
+        xaxis = list(title = ""),
+        yaxis = list(title = "Rate", tickformat = ".0%")
+      )
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+```{r}
+# Clustering 
+# Required packages:
+# install.packages(c(
+#   "shiny", "bslib", "dplyr", "readr", "stringr", "purrr", "tidyr",
+#   "plotly", "DT", "sf", "scales", "mapgl", "htmltools", "RColorBrewer"
+# ))
+
+install.packages("Rcpp")
+install.packages("mapgl")
+library(shiny)
+library(bslib)
+library(dplyr)
+library(readr)
+library(stringr)
+library(purrr)
+library(tidyr)
+library(plotly)
+library(DT)
+library(sf)
+library(scales)
+library(htmltools)
+library(RColorBrewer)
+library(mapgl)
+
+BOSTON_FILE <- "listings_Boston.csv"
+JERSEY_FILE <- "listings_Jersey.csv"
+
+MAX_PRICE <- 1000
+
+clean_price <- function(x) {
+  x <- gsub("[,$ ]", "", x)
+  suppressWarnings(as.numeric(x))
+}
+
+pick_region_var <- function(df) {
+  candidates <- c("neighbourhood_cleansed", "neighbourhood", "zipcode")
+  found <- candidates[candidates %in% names(df)]
+  if (length(found) == 0) stop("No neighborhood-like column found.")
+  found[1]
+}
+
+pick_name_var <- function(df) {
+  candidates <- c("name", "listing_url", "id")
+  found <- candidates[candidates %in% names(df)]
+  if (length(found) == 0) names(df)[1] else found[1]
+}
+
+safe_num <- function(x) suppressWarnings(as.numeric(x))
+
+normalize_city_data <- function(df, city_name) {
+  region_var <- pick_region_var(df)
+  name_var   <- pick_name_var(df)
+
+  if ("price" %in% names(df)) {
+    df$price <- clean_price(df$price)
+  } else {
+    stop(paste("Missing `price` column in", city_name))
+  }
+
+  if ("latitude" %in% names(df))  df$latitude  <- safe_num(df$latitude)
+  if ("longitude" %in% names(df)) df$longitude <- safe_num(df$longitude)
+  if ("accommodates" %in% names(df)) df$accommodates <- safe_num(df$accommodates)
+  if ("bedrooms" %in% names(df)) df$bedrooms <- safe_num(df$bedrooms)
+  if ("beds" %in% names(df)) df$beds <- safe_num(df$beds)
+
+  # bathrooms may be numeric or character like "1 bath"
+  if ("bathrooms" %in% names(df)) {
+    if (is.character(df$bathrooms)) {
+      df$bathrooms_num <- readr::parse_number(df$bathrooms)
+    } else {
+      df$bathrooms_num <- safe_num(df$bathrooms)
+    }
+  } else {
+    df$bathrooms_num <- NA_real_
+  }
+
+  if (!("amenities" %in% names(df))) df$amenities <- ""
+
+  df <- df %>%
+    mutate(
+      city = city_name,
+      neighbourhood_key = as.character(.data[[region_var]]),
+      listing_label = as.character(.data[[name_var]])
+    ) %>%
+    mutate(
+      neighbourhood_key = ifelse(
+        is.na(neighbourhood_key) | trimws(neighbourhood_key) == "",
+        "Unknown",
+        neighbourhood_key
+      ),
+      listing_label = ifelse(
+        is.na(listing_label) | trimws(listing_label) == "",
+        paste("Listing", row_number()),
+        listing_label
+      )
+    ) %>%
+    filter(
+      !is.na(price),
+      price > 0,
+      price <= MAX_PRICE,
+      !is.na(latitude),
+      !is.na(longitude)
+    )
+
+  df
+}
+
+detect_amenity <- function(x, pattern) {
+  str_detect(str_to_lower(coalesce(x, "")), pattern)
+}
+
+prepare_listing_features <- function(df) {
+  df %>%
+    mutate(
+      has_wifi    = detect_amenity(amenities, "wifi|ethernet"),
+      has_kitchen = detect_amenity(amenities, "kitchen"),
+      has_parking = detect_amenity(amenities, "parking|garage|carport|driveway|street parking"),
+      has_ac      = detect_amenity(amenities, "air conditioning|ceiling fan|portable fans|window ac|central air"),
+      has_pool    = detect_amenity(amenities, "pool"),
+      has_gym     = detect_amenity(amenities, "gym|exercise equipment|free weights|treadmill|yoga"),
+      has_tv      = detect_amenity(amenities, "tv|television|hdtv|roku|chromecast"),
+      has_washer  = detect_amenity(amenities, "washer"),
+      has_dryer   = detect_amenity(amenities, "dryer"),
+      has_elevator = detect_amenity(amenities, "elevator"),
+      has_workspace = detect_amenity(amenities, "dedicated workspace"),
+      has_pets_allowed = detect_amenity(amenities, "pets allowed")
+    )
+}
+
+aggregate_neighborhoods <- function(df) {
+  df %>%
+    group_by(city, neighbourhood_key) %>%
+    summarise(
+      n_listings = n(),
+      mean_price = mean(price, na.rm = TRUE),
+      median_price = median(price, na.rm = TRUE),
+      min_price = min(price, na.rm = TRUE),
+      max_price = max(price, na.rm = TRUE),
+      q1_price = quantile(price, 0.25, na.rm = TRUE),
+      q3_price = quantile(price, 0.75, na.rm = TRUE),
+      sd_price = sd(price, na.rm = TRUE),
+      mean_accommodates = mean(accommodates, na.rm = TRUE),
+      mean_bedrooms = mean(bedrooms, na.rm = TRUE),
+      mean_beds = mean(beds, na.rm = TRUE),
+      mean_bathrooms = mean(bathrooms_num, na.rm = TRUE),
+      wifi_rate = mean(has_wifi, na.rm = TRUE),
+      kitchen_rate = mean(has_kitchen, na.rm = TRUE),
+      parking_rate = mean(has_parking, na.rm = TRUE),
+      ac_rate = mean(has_ac, na.rm = TRUE),
+      pool_rate = mean(has_pool, na.rm = TRUE),
+      gym_rate = mean(has_gym, na.rm = TRUE),
+      tv_rate = mean(has_tv, na.rm = TRUE),
+      washer_rate = mean(has_washer, na.rm = TRUE),
+      dryer_rate = mean(has_dryer, na.rm = TRUE),
+      elevator_rate = mean(has_elevator, na.rm = TRUE),
+      workspace_rate = mean(has_workspace, na.rm = TRUE),
+      pets_rate = mean(has_pets_allowed, na.rm = TRUE),
+      latitude = mean(latitude, na.rm = TRUE),
+      longitude = mean(longitude, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    mutate(across(where(is.numeric), ~replace_na(., 0)))
+}
+
+assign_price_tier <- function(x) {
+  u <- unique(na.omit(x))
+  if (length(u) < 3) {
+    return(factor(rep("Medium", length(x)),
+                  levels = c("Affordable", "Medium", "Expensive")))
+  }
+
+  brks <- unique(as.numeric(quantile(x, probs = c(0, 1/3, 2/3, 1), na.rm = TRUE)))
+  if (length(brks) < 4) {
+    rk <- rank(x, ties.method = "average")
+    grp <- ntile(rk, 3)
+    out <- c("Affordable", "Medium", "Expensive")[grp]
+    return(factor(out, levels = c("Affordable", "Medium", "Expensive")))
+  }
+
+  cut(
+    x,
+    breaks = brks,
+    include.lowest = TRUE,
+    labels = c("Affordable", "Medium", "Expensive")
+  )
+}
+
+cluster_neighborhoods <- function(df, k = 3, price_basis = "median_price") {
+  feature_vars <- c(
+    "mean_price", "median_price", "min_price", "max_price", "q1_price", "q3_price", "sd_price",
+    "mean_accommodates", "mean_bedrooms", "mean_beds", "mean_bathrooms",
+    "wifi_rate", "kitchen_rate", "parking_rate", "ac_rate", "pool_rate",
+    "gym_rate", "tv_rate", "washer_rate", "dryer_rate", "elevator_rate",
+    "workspace_rate", "pets_rate"
+  )
+
+  feature_vars <- feature_vars[feature_vars %in% names(df)]
+  x <- df[, feature_vars, drop = FALSE]
+
+  x_scaled <- scale(x)
+  x_scaled[is.na(x_scaled)] <- 0
+
+  set.seed(123)
+  km <- kmeans(x_scaled, centers = k, nstart = 50)
+
+  out <- df %>%
+    mutate(
+      cluster_id = km$cluster,
+      cluster = paste0("Cluster ", km$cluster),
+      price_tier = assign_price_tier(.data[[price_basis]])
+    )
+
+  out
+}
+
+compute_pca_payload <- function(df) {
+  vars <- c(
+    "mean_price", "median_price", "min_price", "max_price", "q1_price", "q3_price", "sd_price",
+    "mean_accommodates", "mean_bedrooms", "mean_beds", "mean_bathrooms",
+    "wifi_rate", "kitchen_rate", "parking_rate", "ac_rate", "pool_rate",
+    "gym_rate", "tv_rate", "washer_rate", "dryer_rate", "elevator_rate",
+    "workspace_rate", "pets_rate"
+  )
+  vars <- vars[vars %in% names(df)]
+
+  x <- df[, vars, drop = FALSE]
+  x <- x[, apply(x, 2, function(col) sd(col, na.rm = TRUE) > 0), drop = FALSE]
+
+  if (ncol(x) < 2) {
+    return(list(
+      scores = data.frame(),
+      loadings = data.frame(),
+      variance = c(PC1 = NA_real_, PC2 = NA_real_, PC3 = NA_real_)
+    ))
+  }
+
+  pca <- prcomp(x, center = TRUE, scale. = TRUE)
+
+  scores <- as.data.frame(pca$x[, seq_len(min(3, ncol(pca$x))), drop = FALSE])
+  if (!("PC1" %in% names(scores))) scores$PC1 <- 0
+  if (!("PC2" %in% names(scores))) scores$PC2 <- 0
+  if (!("PC3" %in% names(scores))) scores$PC3 <- 0
+
+  scores <- scores %>%
+    mutate(
+      city = df$city,
+      neighbourhood_key = df$neighbourhood_key,
+      cluster = df$cluster,
+      price_tier = df$price_tier,
+      median_price = df$median_price,
+      n_listings = df$n_listings
+    )
+
+  loadings <- as.data.frame(pca$rotation[, seq_len(min(3, ncol(pca$rotation))), drop = FALSE])
+  if (!("PC1" %in% names(loadings))) loadings$PC1 <- 0
+  if (!("PC2" %in% names(loadings))) loadings$PC2 <- 0
+  if (!("PC3" %in% names(loadings))) loadings$PC3 <- 0
+  loadings$variable <- rownames(loadings)
+
+  imp <- summary(pca)$importance
+  variance <- c(
+    PC1 = ifelse(ncol(imp) >= 1, imp[2, 1], NA_real_),
+    PC2 = ifelse(ncol(imp) >= 2, imp[2, 2], NA_real_),
+    PC3 = ifelse(ncol(imp) >= 3, imp[2, 3], NA_real_)
+  )
+
+  list(scores = scores, loadings = loadings, variance = variance)
+}
+
+make_popup_html <- function(df) {
+  paste0(
+    "<div style='font-family:Inter,Arial,sans-serif;'>",
+    "<div style='font-weight:800;font-size:14px;margin-bottom:6px;'>", htmlEscape(df$neighbourhood_key), "</div>",
+    "<div><b>City:</b> ", htmlEscape(df$city), "</div>",
+    "<div><b>Listings:</b> ", comma(df$n_listings), "</div>",
+    "<div><b>Mean price:</b> $", comma(round(df$mean_price, 0)), "</div>",
+    "<div><b>Median price:</b> $", comma(round(df$median_price, 0)), "</div>",
+    "<div><b>Min:</b> $", comma(round(df$min_price, 0)), "</div>",
+    "<div><b>Max:</b> $", comma(round(df$max_price, 0)), "</div>",
+    "<div><b>Cluster:</b> ", htmlEscape(df$cluster), "</div>",
+    "<div><b>Price tier:</b> ", htmlEscape(as.character(df$price_tier)), "</div>",
+    "</div>"
+  )
+}
+
+tier_palette <- c(
+  "Affordable" = "#10B981",
+  "Medium" = "#F59E0B",
+  "Expensive" = "#EF4444"
+)
+
+cluster_palette <- function(n) {
+  cols <- brewer.pal(max(3, min(8, n)), "Set2")
+  cols[seq_len(n)]
+}
+
+if (!file.exists(BOSTON_FILE)) stop(paste("Missing file:", BOSTON_FILE))
+if (!file.exists(JERSEY_FILE)) stop(paste("Missing file:", JERSEY_FILE))
+
+boston_raw <- read_csv(BOSTON_FILE, show_col_types = FALSE)
+jersey_raw <- read_csv(JERSEY_FILE, show_col_types = FALSE)
+
+boston <- normalize_city_data(boston_raw, "Boston")
+jersey <- normalize_city_data(jersey_raw, "Jersey City")
+
+listings_all <- bind_rows(boston, jersey) %>%
+  prepare_listing_features()
+
+neighborhoods_base <- aggregate_neighborhoods(listings_all)
+
+app_theme <- bs_theme(
+  version = 5,
+  bootswatch = "minty",
+  primary = "#2563EB",
+  secondary = "#7C3AED",
+  success = "#10B981",
+  base_font = font_google("Inter"),
+  heading_font = font_google("Inter")
+)
+
+ui <- page_navbar(
+  title = div(
+    style = "font-weight:800;",
+    "Airbnb Price Clustering Explorer"
+  ),
+  theme = app_theme,
+  fillable = TRUE,
+  sidebar = sidebar(
+    width = 360,
+    bg = "#F8FAFC",
+    tags$div(
+      style = "font-weight:800;font-size:1.1rem;margin-bottom:8px;",
+      "Controls"
+    ),
+    selectInput(
+      "city_filter", "City",
+      choices = c("All", "Boston", "Jersey City"),
+      selected = "All"
+    ),
+    sliderInput(
+      "min_listings", "Minimum listings per neighborhood",
+      min = 1, max = max(neighborhoods_base$n_listings, na.rm = TRUE),
+      value = 5, step = 1
+    ),
+    selectInput(
+      "price_basis", "Price basis for tiering",
+      choices = c(
+        "Median price" = "median_price",
+        "Mean price" = "mean_price",
+        "Low price" = "min_price",
+        "High price" = "max_price"
+      ),
+      selected = "median_price"
+    ),
+    numericInput(
+      "n_clusters", "Number of clusters",
+      value = 3, min = 2, max = 8, step = 1
+    ),
+    selectInput(
+      "color_by", "Map color",
+      choices = c("Price tier" = "price_tier", "Cluster" = "cluster"),
+      selected = "price_tier"
+    ),
+    sliderInput(
+      "median_range", "Median price filter",
+      min = floor(min(neighborhoods_base$median_price, na.rm = TRUE)),
+      max = ceiling(max(neighborhoods_base$median_price, na.rm = TRUE)),
+      value = c(
+        floor(min(neighborhoods_base$median_price, na.rm = TRUE)),
+        ceiling(max(neighborhoods_base$median_price, na.rm = TRUE))
+      ),
+      step = 1,
+      pre = "$"
+    ),
+    selectizeInput(
+      "neighborhood_select", "Neighborhoods",
+      choices = sort(unique(neighborhoods_base$neighbourhood_key)),
+      selected = NULL,
+      multiple = TRUE,
+      options = list(placeholder = "All neighborhoods")
+    ),
+    hr(),
+    tags$div(
+      style = "font-size:0.9rem;color:#475569;",
+      "Tip: use Median price + 3 clusters to start. Color by Price tier for the clearest story."
+    )
+  ),
+
+  nav_panel(
+    "Map",
+    layout_columns(
+      col_widths = c(4, 4, 4),
+      value_box(
+        title = "Neighborhoods shown",
+        value = textOutput("vb_nhoods"),
+        showcase = NULL,
+        theme = "primary"
+      ),
+      value_box(
+        title = "Median of neighborhood medians",
+        value = textOutput("vb_median"),
+        showcase = NULL,
+        theme = "success"
+      ),
+      value_box(
+        title = "Clusters",
+        value = textOutput("vb_clusters"),
+        showcase = NULL,
+        theme = "secondary"
+      )
+    ),
+    card(
+      full_screen = TRUE,
+      style = "border-radius:20px;",
+      card_body(
+        mapgl::maplibreOutput("price_map", height = "720px")
+      )
+    )
+  ),
+
+  nav_panel(
+    "PCA",
+    layout_columns(
+      col_widths = c(7, 5),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("PCA scores"),
+        plotlyOutput("pca_scores", height = "620px")
+      ),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("PCA loadings"),
+        plotlyOutput("pca_loadings", height = "620px")
+      )
+    )
+  ),
+
+  nav_panel(
+    "Tables",
+    layout_columns(
+      col_widths = c(12),
+      card(
+        style = "border-radius:20px;",
+        card_header("Neighborhood summary"),
+        DTOutput("summary_table")
+      ),
+      card(
+        style = "border-radius:20px;",
+        card_header("Listings in selected neighborhoods"),
+        DTOutput("listing_table")
+      )
+    )
+  ),
+
+  nav_panel(
+    "Diagnostics",
+    layout_columns(
+      col_widths = c(6, 6),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Neighborhood price distribution"),
+        plotlyOutput("price_hist", height = "420px")
+      ),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Cluster vs median price"),
+        plotlyOutput("cluster_box", height = "420px")
+      )
+    ),
+    layout_columns(
+      col_widths = c(6, 6),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Mean vs median price"),
+        plotlyOutput("scatter_price", height = "420px")
+      ),
+      card(
+        full_screen = TRUE,
+        style = "border-radius:20px;",
+        card_header("Amenities summary"),
+        plotlyOutput("amenity_bars", height = "420px")
+      )
+    )
+  )
+)
+
+server <- function(input, output, session) {
+
+  clustered_data <- reactive({
+    df <- neighborhoods_base
+
+    if (!identical(input$city_filter, "All")) {
+      df <- df %>% filter(city == input$city_filter)
+    }
+
+    df <- df %>%
+      filter(
+        n_listings >= input$min_listings,
+        median_price >= input$median_range[1],
+        median_price <= input$median_range[2]
+      )
+
+    if (!is.null(input$neighborhood_select) && length(input$neighborhood_select) > 0) {
+      df <- df %>% filter(neighbourhood_key %in% input$neighborhood_select)
+    }
+
+    validate(need(nrow(df) >= input$n_clusters, "Not enough neighborhoods for the selected number of clusters."))
+
+    cluster_neighborhoods(
+      df = df,
+      k = input$n_clusters,
+      price_basis = input$price_basis
+    )
+  })
+
+  pca_payload <- reactive({
+    compute_pca_payload(clustered_data())
+  })
+
+  listings_filtered <- reactive({
+    nhoods <- clustered_data() %>% pull(neighbourhood_key)
+    cities <- clustered_data() %>% distinct(city) %>% pull(city)
+
+    listings_all %>%
+      filter(city %in% cities, neighbourhood_key %in% nhoods)
+  })
+
+  output$vb_nhoods <- renderText({
+    comma(nrow(clustered_data()))
+  })
+
+  output$vb_median <- renderText({
+    paste0("$", comma(round(median(clustered_data()$median_price, na.rm = TRUE), 0)))
+  })
+
+  output$vb_clusters <- renderText({
+    length(unique(clustered_data()$cluster))
+  })
+
+  output$price_map <- renderMaplibre({
+    df <- clustered_data()
+
+    validate(need(nrow(df) > 0, "No neighborhoods to map."))
+
+    map_df <- st_as_sf(
+      df,
+      coords = c("longitude", "latitude"),
+      crs = 4326,
+      remove = FALSE
+    )
+
+    map_df$popup_html <- make_popup_html(map_df)
+
+    if (identical(input$color_by, "price_tier")) {
+      circle_colors <- mapgl::match_expr(
+        "price_tier",
+        values = names(tier_palette),
+        stops = unname(tier_palette)
+      )
+      legend_values <- names(tier_palette)
+      legend_colors <- unname(tier_palette)
+      legend_title  <- "Price tier"
+    } else {
+      clust_vals <- sort(unique(map_df$cluster))
+      clust_cols <- cluster_palette(length(clust_vals))
+      circle_colors <- mapgl::match_expr(
+        "cluster",
+        values = clust_vals,
+        stops = clust_cols
+      )
+      legend_values <- clust_vals
+      legend_colors <- clust_cols
+      legend_title  <- "Cluster"
+    }
+
+    rad <- mapgl::interpolate(
+      column = "median_price",
+      values = c(min(map_df$median_price, na.rm = TRUE), max(map_df$median_price, na.rm = TRUE)),
+      stops = c(8, 24)
+    )
+
+    mapgl::maplibre(
+      style = mapgl::carto_style("positron"),
+      center = c(mean(df$longitude, na.rm = TRUE), mean(df$latitude, na.rm = TRUE)),
+      zoom = ifelse(length(unique(df$city)) == 1, 11, 8)
+    ) %>%
+      mapgl::add_navigation_control() %>%
+      mapgl::add_fullscreen_control() %>%
+      mapgl::add_circle_layer(
+        id = "neighborhood_points",
+        source = map_df,
+        circle_color = circle_colors,
+        circle_radius = rad,
+        circle_opacity = 0.85,
+        circle_stroke_color = "#FFFFFF",
+        circle_stroke_width = 1.5,
+        popup = "popup_html",
+        tooltip = "neighbourhood_key",
+        hover_options = list(
+          circle_radius = 28,
+          circle_opacity = 1
+        )
+      ) %>%
+      mapgl::add_categorical_legend(
+        legend_title = legend_title,
+        values = legend_values,
+        colors = legend_colors,
+        circular_patches = TRUE
+      )
+  })
+
+  output$pca_scores <- renderPlotly({
+    scores <- pca_payload()$scores
+
+    validate(need(nrow(scores) > 0, "PCA unavailable for the current filter."))
+
+    plot_ly(
+      data = scores,
+      x = ~PC1,
+      y = ~PC2,
+      type = "scatter",
+      mode = "markers",
+      color = ~price_tier,
+      colors = tier_palette,
+      symbol = ~cluster,
+      symbols = c("circle", "square", "diamond", "x", "triangle-up", "cross", "star", "triangle-down"),
+      size = ~median_price,
+      sizes = c(10, 30),
+      text = ~paste0(
+        "<b>", neighbourhood_key, "</b>",
+        "<br>City: ", city,
+        "<br>Median price: $", comma(round(median_price, 0)),
+        "<br>Listings: ", comma(n_listings),
+        "<br>Cluster: ", cluster,
+        "<br>Tier: ", price_tier
+      ),
+      hovertemplate = "%{text}<br>PC1=%{x:.2f}<br>PC2=%{y:.2f}<extra></extra>"
+    ) %>%
+      layout(
+        title = paste0(
+          "PCA scores",
+          "<br><sup>Explained variance: PC1 = ",
+          percent(pca_payload()$variance["PC1"], accuracy = 0.1),
+          ", PC2 = ",
+          percent(pca_payload()$variance["PC2"], accuracy = 0.1),
+          "</sup>"
+        ),
+        xaxis = list(title = "PC1"),
+        yaxis = list(title = "PC2"),
+        legend = list(orientation = "h", x = 0, y = -0.15)
+      )
+  })
+
+  output$pca_loadings <- renderPlotly({
+    loadings <- pca_payload()$loadings
+
+    validate(need(nrow(loadings) > 0, "PCA loadings unavailable for the current filter."))
+
+    plot_ly(
+      data = loadings,
+      x = ~PC1,
+      y = ~PC2,
+      type = "scatter",
+      mode = "markers+text",
+      text = ~variable,
+      textposition = "top center",
+      hovertemplate = paste0(
+        "<b>%{text}</b>",
+        "<br>PC1 = %{x:.3f}",
+        "<br>PC2 = %{y:.3f}<extra></extra>"
+      )
+    ) %>%
+      add_segments(
+        x = 0, y = 0,
+        xend = ~PC1, yend = ~PC2,
+        inherit = FALSE,
+        showlegend = FALSE
+      ) %>%
+      layout(
+        title = "PCA loadings",
+        xaxis = list(title = "PC1", zeroline = TRUE),
+        yaxis = list(title = "PC2", zeroline = TRUE)
+      )
+  })
+
+  output$summary_table <- renderDT({
+    df <- clustered_data() %>%
+      mutate(
+        price_tier = as.character(price_tier)
+      ) %>%
+      select(
+        city, neighbourhood_key, n_listings, cluster, price_tier,
+        mean_price, median_price, min_price, max_price, q1_price, q3_price, sd_price,
+        mean_accommodates, mean_bedrooms, mean_beds, mean_bathrooms,
+        wifi_rate, kitchen_rate, parking_rate, ac_rate, pool_rate,
+        gym_rate, tv_rate, washer_rate, dryer_rate, elevator_rate,
+        workspace_rate, pets_rate
+      ) %>%
+      arrange(desc(median_price))
+
+    datatable(
+      df,
+      rownames = FALSE,
+      extensions = "Buttons",
+      options = list(
+        pageLength = 12,
+        scrollX = TRUE,
+        dom = "Bfrtip",
+        buttons = c("copy", "csv", "excel")
+      )
+    ) %>%
+      formatCurrency(c("mean_price", "median_price", "min_price", "max_price", "q1_price", "q3_price"), currency = "$", digits = 0) %>%
+      formatRound(c("sd_price", "mean_accommodates", "mean_bedrooms", "mean_beds", "mean_bathrooms"), 2) %>%
+      formatPercentage(
+        c("wifi_rate", "kitchen_rate", "parking_rate", "ac_rate", "pool_rate",
+          "gym_rate", "tv_rate", "washer_rate", "dryer_rate", "elevator_rate",
+          "workspace_rate", "pets_rate"), 1
+      )
+  })
+
+  output$listing_table <- renderDT({
+    df <- listings_filtered() %>%
+      select(
+        city, neighbourhood_key, listing_label, price,
+        accommodates, bedrooms, beds, bathrooms_num,
+        latitude, longitude
+      ) %>%
+      arrange(desc(price))
+
+    datatable(
+      df,
+      rownames = FALSE,
+      extensions = "Buttons",
+      options = list(
+        pageLength = 12,
+        scrollX = TRUE,
+        dom = "Bfrtip",
+        buttons = c("copy", "csv", "excel")
+      )
+    ) %>%
+      formatCurrency("price", currency = "$", digits = 0) %>%
+      formatRound(c("bathrooms_num", "latitude", "longitude"), 2)
+  })
+
+  output$price_hist <- renderPlotly({
+    df <- clustered_data()
+
+    plot_ly(
+      data = df,
+      x = ~median_price,
+      color = ~price_tier,
+      colors = tier_palette,
+      type = "histogram"
+    ) %>%
+      layout(
+        title = "Distribution of neighborhood median prices",
+        xaxis = list(title = "Neighborhood median price"),
+        yaxis = list(title = "Count")
+      )
+  })
+
+  output$cluster_box <- renderPlotly({
+    df <- clustered_data()
+
+    plot_ly(
+      data = df,
+      x = ~cluster,
+      y = ~median_price,
+      color = ~cluster,
+      type = "box",
+      boxpoints = "all",
+      jitter = 0.2,
+      pointpos = 0
+    ) %>%
+      layout(
+        title = "Median price by cluster",
+        xaxis = list(title = "Cluster"),
+        yaxis = list(title = "Neighborhood median price")
+      )
+  })
+
+  output$scatter_price <- renderPlotly({
+    df <- clustered_data()
+
+    plot_ly(
+      data = df,
+      x = ~mean_price,
+      y = ~median_price,
+      color = ~price_tier,
+      colors = tier_palette,
+      type = "scatter",
+      mode = "markers",
+      text = ~paste0(
+        "<b>", neighbourhood_key, "</b>",
+        "<br>City: ", city,
+        "<br>Cluster: ", cluster,
+        "<br>Mean: $", comma(round(mean_price, 0)),
+        "<br>Median: $", comma(round(median_price, 0))
+      ),
+      hovertemplate = "%{text}<extra></extra>"
+    ) %>%
+      layout(
+        title = "Mean vs median neighborhood price",
+        xaxis = list(title = "Mean price"),
+        yaxis = list(title = "Median price")
+      )
+  })
+
+  output$amenity_bars <- renderPlotly({
+    df <- clustered_data()
+
+    amenity_df <- df %>%
+      summarise(
+        WiFi = mean(wifi_rate, na.rm = TRUE),
+        Kitchen = mean(kitchen_rate, na.rm = TRUE),
+        Parking = mean(parking_rate, na.rm = TRUE),
+        AC = mean(ac_rate, na.rm = TRUE),
+        Pool = mean(pool_rate, na.rm = TRUE),
+        Gym = mean(gym_rate, na.rm = TRUE),
+        TV = mean(tv_rate, na.rm = TRUE),
+        Washer = mean(washer_rate, na.rm = TRUE),
+        Dryer = mean(dryer_rate, na.rm = TRUE),
+        Elevator = mean(elevator_rate, na.rm = TRUE),
+        Workspace = mean(workspace_rate, na.rm = TRUE),
+        Pets = mean(pets_rate, na.rm = TRUE)
+      ) %>%
+      pivot_longer(everything(), names_to = "amenity", values_to = "rate")
+
+    plot_ly(
+      data = amenity_df,
+      x = ~reorder(amenity, rate),
+      y = ~rate,
+      type = "bar"
+    ) %>%
+      layout(
+        title = "Average amenity presence across shown neighborhoods",
+        xaxis = list(title = ""),
+        yaxis = list(title = "Rate", tickformat = ".0%")
+      )
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(readr)
+library(scales)
+
+boston <- read.csv("listings_Boston.csv")
+jersey <- read.csv("listings_Jersey.csv")
+
+clean_price <- function(x) {
+  x <- gsub("[\\$, ]", "", x)
+  as.numeric(x)
+}
+
+boston$price <- clean_price(boston$price)
+jersey$price <- clean_price(jersey$price)
+
+boston <- boston %>% filter(!is.na(price))
+jersey <- jersey %>% filter(!is.na(price))
+
+get_region <- function(df) {
+  if ("neighbourhood_cleansed" %in% names(df)) return("neighbourhood_cleansed")
+  if ("neighbourhood" %in% names(df)) return("neighbourhood")
+  if ("zipcode" %in% names(df)) return("zipcode")
+}
+
+boston$region <- boston[[get_region(boston)]]
+jersey$region <- jersey[[get_region(jersey)]]
+
+boston$city <- "Boston"
+jersey$city <- "Jersey City"
+
+data <- bind_rows(boston, jersey)
+
+
+neighborhoods <- data %>%
+  group_by(city, region) %>%
+  summarise(
+    n_listings = n(),
+    mean_price = mean(price),
+    median_price = median(price),
+    min_price = min(price),
+    max_price = max(price),
+    sd_price = sd(price),
+    q1 = quantile(price, 0.25),
+    q3 = quantile(price, 0.75),
+    .groups = "drop"
+  )
+
+features <- neighborhoods %>%
+  select(mean_price, median_price, min_price, max_price, sd_price, q1, q3)
+
+scaled_features <- scale(features)
+
+set.seed(123)
+k <- 3
+
+kmeans_model <- kmeans(scaled_features, centers = k, nstart = 25)
+
+neighborhoods$cluster <- factor(kmeans_model$cluster)
+
+neighborhoods$price_tier <- cut(
+  neighborhoods$median_price,
+  breaks = quantile(neighborhoods$median_price, probs = c(0, 1/3, 2/3, 1)),
+  include.lowest = TRUE,
+  labels = c("Affordable", "Medium", "Expensive")
+)
+
+# PCA
+pca <- prcomp(scaled_features, center = TRUE, scale. = TRUE)
+
+pca_scores <- as.data.frame(pca$x[,1:2])
+pca_scores$cluster <- neighborhoods$cluster
+pca_scores$price_tier <- neighborhoods$price_tier
+pca_scores$region <- neighborhoods$region
+pca_scores$city <- neighborhoods$city
+
+summary(pca)
+
+ggplot(pca_scores, aes(PC1, PC2, color = price_tier, shape = cluster)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(
+    title = "PCA of Neighborhood Prices",
+    subtitle = "Colored by Price Tier, shaped by Cluster"
+  )
+
+
+ggplot(neighborhoods, aes(cluster, median_price, fill = cluster)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Cluster vs Median Price")
+
+ggplot(neighborhoods, aes(mean_price, median_price, color = cluster)) +
+  geom_point(size = 3) +
+  theme_minimal() +
+  labs(title = "Mean vs Median Price")
+
+
+loadings <- as.data.frame(pca$rotation[,1:2])
+loadings$variable <- rownames(loadings)
+
+ggplot(loadings, aes(0, 0)) +
+  geom_segment(aes(xend = PC1, yend = PC2), arrow = arrow(length = unit(0.2,"cm"))) +
+  geom_text(aes(x = PC1, y = PC2, label = variable), size = 4) +
+  theme_minimal() +
+  labs(title = "PCA Loadings (What drives variation)")
+
+
+head(neighborhoods)
+```
+
+
+```{r}
+
+cran_packages <- c(
+  "rlang",
+  "tidyverse",
+  "ggrepel",
+  "ggtext",
+  "patchwork",
+  "factoextra",
+  "viridis",
+  "scales",
+  "glue",
+  "circlize",
+  "cluster",
+  "gridExtra",
+  "GGally",
+  "fmsb"
+)
+
+installed_pkgs <- rownames(installed.packages())
+
+for (pkg in cran_packages) {
+  if (!(pkg %in% installed_pkgs)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+}
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager")
+}
+
+if (!("ComplexHeatmap" %in% rownames(installed.packages()))) {
+  BiocManager::install("ComplexHeatmap", ask = FALSE, update = FALSE)
+}
+
+# 1. LOAD LIBRARIES
+library(rlang)
+library(tidyverse)
+library(ggrepel)
+library(ggtext)
+library(patchwork)
+library(factoextra)
+library(viridis)
+library(scales)
+library(glue)
+library(ComplexHeatmap)
+library(circlize)
+library(grid)
+library(cluster)
+library(gridExtra)
+library(GGally)
+library(fmsb)
+
+pacmap_available <- requireNamespace("reticulate", quietly = TRUE) &&
+  reticulate::py_module_available("pacmap")
+
+clean_price <- function(x) {
+  x <- gsub("[\\$, ]", "", x)
+  suppressWarnings(as.numeric(x))
+}
+
+get_region <- function(df) {
+  if ("neighbourhood_cleansed" %in% names(df)) return("neighbourhood_cleansed")
+  if ("neighbourhood" %in% names(df)) return("neighbourhood")
+  if ("zipcode" %in% names(df)) return("zipcode")
+  stop("No neighborhood column found.")
+}
+
+wrap_text_vec <- function(x, width = 18) {
+  stringr::str_wrap(as.character(x), width = width)
+}
+
+theme_pro <- function() {
+  ggplot2::theme_minimal(base_size = 14) +
+    ggplot2::theme(
+      plot.title = ggtext::element_markdown(face = "bold", size = 18, color = "#111827"),
+      plot.subtitle = ggtext::element_markdown(size = 12, color = "#4B5563"),
+      axis.title = ggplot2::element_text(face = "bold", color = "#111827"),
+      axis.text = ggplot2::element_text(color = "#374151"),
+      strip.text = ggplot2::element_text(face = "bold", size = 11, color = "#111827"),
+      legend.position = "top",
+      legend.title = ggplot2::element_text(face = "bold"),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_line(color = "#E5E7EB", linewidth = 0.4),
+      plot.margin = ggplot2::margin(12, 12, 12, 12)
+    )
+}
+
+save_plot_hi <- function(plot_obj, filename, width = 12, height = 8, dpi = 500) {
+  ggplot2::ggsave(
+    filename = filename,
+    plot = plot_obj,
+    width = width,
+    height = height,
+    dpi = dpi,
+    bg = "white"
+  )
+}
+
+cluster_cols <- c(
+  "Cluster 1" = "#2563EB",
+  "Cluster 2" = "#7C3AED",
+  "Cluster 3" = "#10B981",
+  "Cluster 4" = "#F59E0B",
+  "Cluster 5" = "#EF4444",
+  "Cluster 6" = "#06B6D4"
+)
+
+tier_cols <- c(
+  "Affordable" = "#22C55E",
+  "Medium" = "#F59E0B",
+  "Expensive" = "#EF4444"
+)
+
+
+boston <- read.csv("listings_Boston.csv")
+jersey <- read.csv("listings_Jersey.csv")
+
+boston$price <- clean_price(boston$price)
+jersey$price <- clean_price(jersey$price)
+
+boston <- boston %>%
+  dplyr::filter(!is.na(price), price > 0, price <= 1000)
+
+jersey <- jersey %>%
+  dplyr::filter(!is.na(price), price > 0, price <= 1000)
+
+boston$region <- boston[[get_region(boston)]]
+jersey$region <- jersey[[get_region(jersey)]]
+
+boston$city <- "Boston"
+jersey$city <- "Jersey City"
+
+data_all <- dplyr::bind_rows(boston, jersey) %>%
+  dplyr::filter(!is.na(region), trimws(region) != "")
+
+neighborhoods <- data_all %>%
+  dplyr::group_by(city, region) %>%
+  dplyr::summarise(
+    n_listings   = dplyr::n(),
+    mean_price   = mean(price, na.rm = TRUE),
+    median_price = median(price, na.rm = TRUE),
+    min_price    = min(price, na.rm = TRUE),
+    max_price    = max(price, na.rm = TRUE),
+    sd_price     = sd(price, na.rm = TRUE),
+    q1_price     = quantile(price, 0.25, na.rm = TRUE),
+    q3_price     = quantile(price, 0.75, na.rm = TRUE),
+    iqr_price    = IQR(price, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  dplyr::filter(n_listings >= 5) %>%
+  dplyr::mutate(
+    sd_price = tidyr::replace_na(sd_price, 0),
+    region_wrapped = wrap_text_vec(region, width = 16)
+  )
+
+feature_names <- c(
+  "mean_price", "median_price", "min_price", "max_price",
+  "sd_price", "q1_price", "q3_price", "iqr_price"
+)
+
+feature_df <- neighborhoods %>%
+  dplyr::select(dplyr::all_of(feature_names))
+
+scaled_features <- scale(feature_df)
+rownames(scaled_features) <- neighborhoods$region
+
+set.seed(123)
+
+p_elbow <- factoextra::fviz_nbclust(scaled_features, kmeans, method = "wss") +
+  ggplot2::labs(
+    title = "<b>Elbow method</b>",
+    subtitle = "Choose k where improvement starts flattening",
+    x = "Number of clusters (k)",
+    y = "Within-cluster sum of squares"
+  ) +
+  theme_pro()
+
+p_sil_k <- factoextra::fviz_nbclust(scaled_features, kmeans, method = "silhouette") +
+  ggplot2::labs(
+    title = "<b>Silhouette method</b>",
+    subtitle = "Higher average silhouette width is better",
+    x = "Number of clusters (k)",
+    y = "Average silhouette width"
+  ) +
+  theme_pro()
+
+gap_stat <- cluster::clusGap(scaled_features, FUN = kmeans, nstart = 25, K.max = 8, B = 100)
+
+p_gap <- factoextra::fviz_gap_stat(gap_stat) +
+  ggplot2::labs(
+    title = "<b>Gap statistic</b>",
+    subtitle = "Higher values suggest stronger clustering structure"
+  ) +
+  theme_pro()
+
+# Final k
+k <- 3
+
+
+set.seed(123)
+km <- kmeans(scaled_features, centers = k, nstart = 50)
+
+dist_mat <- stats::dist(scaled_features)
+hc <- stats::hclust(dist_mat, method = "ward.D2")
+hc_clusters <- stats::cutree(hc, k = k)
+
+pam_fit <- cluster::pam(scaled_features, k = k)
+
+neighborhoods <- neighborhoods %>%
+  dplyr::mutate(
+    cluster = factor(km$cluster, labels = paste("Cluster", 1:k)),
+    cluster_hc = factor(hc_clusters, labels = paste("Cluster", 1:k)),
+    cluster_pam = factor(pam_fit$clustering, labels = paste("Cluster", 1:k))
+  )
+
+cluster_cols_use <- cluster_cols[levels(neighborhoods$cluster)]
+
+
+tier_breaks <- stats::quantile(
+  neighborhoods$median_price,
+  probs = c(0, 1/3, 2/3, 1),
+  na.rm = TRUE
+)
+
+if (length(unique(tier_breaks)) < 4) {
+  neighborhoods <- neighborhoods %>%
+    dplyr::mutate(
+      price_tier = dplyr::ntile(median_price, 3),
+      price_tier = factor(
+        price_tier,
+        levels = 1:3,
+        labels = c("Affordable", "Medium", "Expensive")
+      )
+    )
+} else {
+  neighborhoods <- neighborhoods %>%
+    dplyr::mutate(
+      price_tier = cut(
+        median_price,
+        breaks = tier_breaks,
+        include.lowest = TRUE,
+        labels = c("Affordable", "Medium", "Expensive")
+      )
+    )
+}
+
+pca <- stats::prcomp(scaled_features, center = TRUE, scale. = TRUE)
+
+scores_mat <- as.data.frame(pca$x[, 1:2])
+scores <- dplyr::bind_cols(
+  neighborhoods %>%
+    dplyr::select(
+      city, region, region_wrapped, cluster, cluster_hc, cluster_pam,
+      price_tier, median_price, n_listings
+    ),
+  scores_mat
+)
+
+loadings <- as.data.frame(pca$rotation[, 1:2])
+loadings$feature <- rownames(loadings)
+
+var_expl <- summary(pca)$importance[2, 1:2]
+
+
+cluster_summary <- neighborhoods %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::summarise(
+    neighborhoods = dplyr::n(),
+    avg_mean_price = mean(mean_price),
+    avg_median_price = mean(median_price),
+    avg_min_price = mean(min_price),
+    avg_max_price = mean(max_price),
+    avg_sd_price = mean(sd_price),
+    avg_q1_price = mean(q1_price),
+    avg_q3_price = mean(q3_price),
+    avg_iqr_price = mean(iqr_price),
+    avg_listings = mean(n_listings),
+    .groups = "drop"
+  ) %>%
+  dplyr::mutate(dplyr::across(where(is.numeric), ~ round(., 2)))
+
+cluster_centers_scaled <- as.data.frame(km$centers) %>%
+  dplyr::mutate(cluster = paste("Cluster", seq_len(n()))) %>%
+  dplyr::relocate(cluster) %>%
+  dplyr::mutate(dplyr::across(-cluster, ~ round(., 3)))
+
+cluster_centers_original <- neighborhoods %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::summarise(
+    dplyr::across(dplyr::all_of(feature_names), ~ round(mean(.x, na.rm = TRUE), 2)),
+    .groups = "drop"
+  )
+
+cluster_membership <- neighborhoods %>%
+  dplyr::arrange(cluster, dplyr::desc(median_price)) %>%
+  dplyr::select(city, region, cluster, price_tier, median_price, mean_price, n_listings)
+
+
+eig_df <- data.frame(
+  PC = factor(paste0("PC", seq_along(pca$sdev)), levels = paste0("PC", seq_along(pca$sdev))),
+  variance = (pca$sdev^2) / sum(pca$sdev^2)
+)
+
+p_scree <- eig_df %>%
+  dplyr::slice(1:6) %>%
+  ggplot2::ggplot(ggplot2::aes(PC, variance)) +
+  ggplot2::geom_col(fill = "#2563EB", width = 0.75) +
+  ggplot2::geom_text(
+    ggplot2::aes(label = scales::percent(variance, accuracy = 0.1)),
+    vjust = -0.5,
+    size = 3.8
+  ) +
+  ggplot2::scale_y_continuous(
+    labels = scales::percent_format(),
+    expand = ggplot2::expansion(mult = c(0, 0.12))
+  ) +
+  ggplot2::labs(
+    title = "<b>Scree plot</b>",
+    subtitle = "Variance explained by each principal component",
+    x = NULL,
+    y = "Explained variance"
+  ) +
+  theme_pro()
+
+
+p_pca <- ggplot2::ggplot(scores, ggplot2::aes(PC1, PC2, color = cluster, size = median_price)) +
+  ggplot2::geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    ggplot2::aes(label = region_wrapped),
+    size = 3.1,
+    max.overlaps = 35,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  ggplot2::scale_color_manual(values = cluster_cols_use) +
+  ggplot2::scale_size_continuous(range = c(3, 9), labels = scales::dollar_format()) +
+  ggplot2::labs(
+    title = "<b>PCA scatter plot</b>",
+    subtitle = glue::glue(
+      "PC1 explains <b>{scales::percent(var_expl[1], 0.1)}</b>; ",
+      "PC2 explains <b>{scales::percent(var_expl[2], 0.1)}</b>"
+    ),
+    x = "Principal Component 1",
+    y = "Principal Component 2",
+    color = "Cluster",
+    size = "Median price"
+  ) +
+  theme_pro()
+
+p_scatter_mean_median <- ggplot2::ggplot(
+  neighborhoods,
+  ggplot2::aes(mean_price, median_price, color = cluster, size = n_listings)
+) +
+  ggplot2::geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    ggplot2::aes(label = region_wrapped),
+    size = 3,
+    max.overlaps = 30,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  ggplot2::scale_color_manual(values = cluster_cols_use) +
+  ggplot2::scale_size_continuous(range = c(3, 8)) +
+  ggplot2::scale_x_continuous(labels = scales::dollar_format()) +
+  ggplot2::scale_y_continuous(labels = scales::dollar_format()) +
+  ggplot2::labs(
+    title = "<b>Mean vs median price</b>",
+    subtitle = "Neighborhood price structure by cluster",
+    x = "Mean price",
+    y = "Median price",
+    color = "Cluster",
+    size = "Listings"
+  ) +
+  theme_pro()
+
+p_scatter_spread <- ggplot2::ggplot(
+  neighborhoods,
+  ggplot2::aes(median_price, sd_price, color = cluster, size = n_listings)
+) +
+  ggplot2::geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    ggplot2::aes(label = region_wrapped),
+    size = 3,
+    max.overlaps = 30,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  ggplot2::scale_color_manual(values = cluster_cols_use) +
+  ggplot2::scale_size_continuous(range = c(3, 8)) +
+  ggplot2::scale_x_continuous(labels = scales::dollar_format()) +
+  ggplot2::scale_y_continuous(labels = scales::dollar_format()) +
+  ggplot2::labs(
+    title = "<b>Median price vs price spread</b>",
+    subtitle = "Higher on the y-axis means more variable listing prices",
+    x = "Median price",
+    y = "Standard deviation of price",
+    color = "Cluster",
+    size = "Listings"
+  ) +
+  theme_pro()
+
+p_scatter_q1_q3 <- ggplot2::ggplot(
+  neighborhoods,
+  ggplot2::aes(q1_price, q3_price, color = cluster, size = median_price)
+) +
+  ggplot2::geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    ggplot2::aes(label = region_wrapped),
+    size = 3,
+    max.overlaps = 30,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  ggplot2::scale_color_manual(values = cluster_cols_use) +
+  ggplot2::scale_size_continuous(range = c(3, 8), labels = scales::dollar_format()) +
+  ggplot2::scale_x_continuous(labels = scales::dollar_format()) +
+  ggplot2::scale_y_continuous(labels = scales::dollar_format()) +
+  ggplot2::labs(
+    title = "<b>Q1 vs Q3 price structure</b>",
+    subtitle = "Lower- and upper-quartile price relationship by neighborhood",
+    x = "Q1 price",
+    y = "Q3 price",
+    color = "Cluster",
+    size = "Median price"
+  ) +
+  theme_pro()
+
+arrow_scale <- 2.8
+
+loadings_plot <- loadings %>%
+  dplyr::mutate(
+    PC1 = PC1 * arrow_scale,
+    PC2 = PC2 * arrow_scale,
+    feature_label = wrap_text_vec(feature, width = 12)
+  )
+
+p_loadings <- ggplot2::ggplot() +
+  ggplot2::geom_point(
+    data = scores,
+    ggplot2::aes(PC1, PC2, color = price_tier),
+    alpha = 0.55,
+    size = 2.8
+  ) +
+  ggplot2::geom_segment(
+    data = loadings_plot,
+    ggplot2::aes(x = 0, y = 0, xend = PC1, yend = PC2),
+    arrow = grid::arrow(length = grid::unit(0.16, "inches")),
+    color = "#111827",
+    linewidth = 0.8
+  ) +
+  ggrepel::geom_text_repel(
+    data = loadings_plot,
+    ggplot2::aes(PC1, PC2, label = feature_label),
+    size = 3.6,
+    color = "#111827"
+  ) +
+  ggplot2::scale_color_manual(values = tier_cols) +
+  ggplot2::labs(
+    title = "<b>PCA biplot</b>",
+    subtitle = "Neighborhood positions with feature directions",
+    x = "Principal Component 1",
+    y = "Principal Component 2",
+    color = "Price tier"
+  ) +
+  theme_pro()
+
+radar_df <- neighborhoods %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::summarise(dplyr::across(dplyr::all_of(feature_names), mean), .groups = "drop")
+
+radar_scaled <- radar_df
+radar_scaled[, feature_names] <- scale(radar_scaled[, feature_names])
+
+radar_plot_data <- radar_scaled %>%
+  dplyr::select(dplyr::all_of(feature_names)) %>%
+  as.data.frame()
+
+radar_plot_data <- rbind(
+  rep(2, length(feature_names)),
+  rep(-2, length(feature_names)),
+  radar_plot_data
+)
+
+colnames(radar_plot_data) <- c(
+  "Mean price", "Median price", "Min price", "Max price",
+  "SD price", "Q1 price", "Q3 price", "IQR price"
+)
+
+sil_obj <- cluster::silhouette(km$cluster, dist_mat)
+
+p_silhouette <- factoextra::fviz_silhouette(sil_obj) +
+  ggplot2::labs(
+    title = "<b>Silhouette plot</b>",
+    subtitle = glue::glue("Average silhouette width = {round(mean(sil_obj[, 'sil_width']), 3)}")
+  ) +
+  theme_pro()
+
+heat_df <- neighborhoods %>%
+  dplyr::arrange(cluster, median_price) %>%
+  dplyr::select(region, cluster, dplyr::all_of(feature_names))
+
+heat_mat <- heat_df %>%
+  dplyr::select(-region, -cluster) %>%
+  as.matrix()
+
+rownames(heat_mat) <- wrap_text_vec(heat_df$region, width = 20)
+heat_mat_scaled <- scale(heat_mat)
+
+row_ha <- ComplexHeatmap::rowAnnotation(
+  Cluster = heat_df$cluster,
+  col = list(Cluster = cluster_cols_use),
+  annotation_name_gp = grid::gpar(fontsize = 11, fontface = "bold")
+)
+
+ht <- ComplexHeatmap::Heatmap(
+  heat_mat_scaled,
+  name = "Z-score",
+  col = circlize::colorRamp2(c(-2.5, 0, 2.5), c("#1D4ED8", "white", "#DC2626")),
+  right_annotation = row_ha,
+  row_names_gp = grid::gpar(fontsize = 8.5),
+  column_names_gp = grid::gpar(fontsize = 10.5, fontface = "bold"),
+  column_labels = c(
+    "Mean price", "Median price", "Min price", "Max price",
+    "SD price", "Q1 price", "Q3 price", "IQR price"
+  ),
+  column_title = "Neighborhood price feature heatmap",
+  column_title_gp = grid::gpar(fontsize = 15, fontface = "bold"),
+  cluster_rows = TRUE,
+  cluster_columns = TRUE,
+  show_row_dend = TRUE,
+  show_column_dend = TRUE,
+  row_dend_side = "left",
+  column_dend_height = grid::unit(2.8, "cm"),
+  row_dend_width = grid::unit(2.8, "cm"),
+  heatmap_legend_param = list(
+    title_gp = grid::gpar(fontsize = 11, fontface = "bold"),
+    labels_gp = grid::gpar(fontsize = 10)
+  )
+)
+
+long_box <- neighborhoods %>%
+  dplyr::select(cluster, dplyr::all_of(feature_names)) %>%
+  tidyr::pivot_longer(-cluster, names_to = "feature", values_to = "value") %>%
+  dplyr::mutate(
+    feature = dplyr::recode(
+      feature,
+      mean_price = "Mean price",
+      median_price = "Median price",
+      min_price = "Min price",
+      max_price = "Max price",
+      sd_price = "SD price",
+      q1_price = "Q1 price",
+      q3_price = "Q3 price",
+      iqr_price = "IQR price"
+    )
+  )
+
+p_box <- ggplot2::ggplot(long_box, ggplot2::aes(cluster, value, fill = cluster)) +
+  ggplot2::geom_boxplot(alpha = 0.9, outlier.alpha = 0.5) +
+  ggplot2::facet_wrap(~ feature, scales = "free_y") +
+  ggplot2::scale_fill_manual(values = cluster_cols_use) +
+  ggplot2::labs(
+    title = "<b>Cluster box plots</b>",
+    subtitle = "Distribution of each neighborhood price feature by cluster",
+    x = NULL,
+    y = "Value",
+    fill = "Cluster"
+  ) +
+  theme_pro()
+
+pair_df <- neighborhoods %>%
+  dplyr::select(cluster, dplyr::all_of(feature_names)) %>%
+  dplyr::rename(
+    `Mean price` = mean_price,
+    `Median price` = median_price,
+    `Min price` = min_price,
+    `Max price` = max_price,
+    `SD price` = sd_price,
+    `Q1 price` = q1_price,
+    `Q3 price` = q3_price,
+    `IQR price` = iqr_price
+  )
+
+p_pair <- GGally::ggpairs(
+  pair_df,
+  columns = 2:6,
+  ggplot2::aes(color = cluster, alpha = 0.8),
+  upper = list(continuous = GGally::wrap("cor", size = 3.5)),
+  lower = list(continuous = GGally::wrap("points", size = 1.6)),
+  diag = list(continuous = GGally::wrap("densityDiag"))
+) +
+  ggplot2::theme_bw(base_size = 11)
+
+if (pacmap_available) {
+  pacmap <- reticulate::import("pacmap")
+  pacmap_fit <- pacmap$PaCMAP(n_components = as.integer(2L))
+  pacmap_embedding <- pacmap_fit$fit_transform(scaled_features)
+
+  pacmap_df <- as.data.frame(pacmap_embedding)
+  names(pacmap_df) <- c("PaCMAP1", "PaCMAP2")
+  pacmap_df <- dplyr::bind_cols(
+    neighborhoods %>% dplyr::select(region_wrapped, cluster, median_price),
+    pacmap_df
+  )
+
+  p_pacmap <- ggplot2::ggplot(
+    pacmap_df,
+    ggplot2::aes(PaCMAP1, PaCMAP2, color = cluster, size = median_price)
+  ) +
+    ggplot2::geom_point(alpha = 0.9) +
+    ggrepel::geom_text_repel(
+      ggplot2::aes(label = region_wrapped),
+      size = 3,
+      max.overlaps = 30
+    ) +
+    ggplot2::scale_color_manual(values = cluster_cols_use) +
+    ggplot2::scale_size_continuous(range = c(3, 8), labels = scales::dollar_format()) +
+    ggplot2::labs(
+      title = "<b>PaCMAP embedding</b>",
+      subtitle = "Nonlinear neighborhood embedding based on price structure",
+      x = "PaCMAP 1",
+      y = "PaCMAP 2",
+      color = "Cluster",
+      size = "Median price"
+    ) +
+    theme_pro()
+} else {
+  p_pacmap <- ggplot2::ggplot() +
+    ggplot2::annotate(
+      "text",
+      x = 1,
+      y = 1,
+      label = "PaCMAP not available.\nInstall Python package 'pacmap' via reticulate.",
+      size = 6
+    ) +
+    ggplot2::theme_void()
+}
+
+
+dir.create("cluster_outputs", showWarnings = FALSE)
+
+
+png("cluster_outputs/06_radar_spider_chart.png", width = 1800, height = 1300, res = 220)
+par(mar = c(2, 2, 3, 2))
+fmsb::radarchart(
+  radar_plot_data,
+  axistype = 1,
+  pcol = unname(cluster_cols_use),
+  pfcol = scales::alpha(unname(cluster_cols_use), 0.18),
+  plwd = 3,
+  plty = 1,
+  cglcol = "grey80",
+  cglty = 1,
+  axislabcol = "grey35",
+  vlcex = 1.0,
+  title = "Cluster Radar / Spider Chart"
+)
+legend(
+  "topright",
+  legend = radar_df$cluster,
+  col = unname(cluster_cols_use),
+  lty = 1,
+  lwd = 3,
+  bty = "n",
+  cex = 1
+)
+dev.off()
+
+png("cluster_outputs/07_hierarchical_dendrogram.png", width = 1800, height = 1100, res = 220)
+plot(
+  hc,
+  labels = wrap_text_vec(neighborhoods$region, width = 14),
+  main = "Hierarchical Clustering Dendrogram",
+  xlab = "",
+  sub = ""
+)
+rect.hclust(hc, k = k, border = 2:6)
+dev.off()
+
+save_plot_hi(
+  p_elbow + p_sil_k + p_gap + patchwork::plot_layout(ncol = 3),
+  "cluster_outputs/01_k_selection_dashboard.png",
+  width = 17,
+  height = 5.5
+)
+
+save_plot_hi(
+  (p_scree | p_pca) / (p_loadings | p_silhouette),
+  "cluster_outputs/02_pca_clustering_dashboard.png",
+  width = 16,
+  height = 10
+)
+
+save_plot_hi(
+  p_box,
+  "cluster_outputs/03_boxplots.png",
+  width = 15,
+  height = 9
+)
+
+save_plot_hi(
+  p_pacmap,
+  "cluster_outputs/04_pacmap.png",
+  width = 12,
+  height = 8
+)
+
+ggplot2::ggsave(
+  filename = "cluster_outputs/05_pair_plot.png",
+  plot = p_pair,
+  width = 14,
+  height = 12,
+  dpi = 400,
+  bg = "white"
+)
+
+save_plot_hi(
+  p_scatter_mean_median,
+  "cluster_outputs/09_scatter_mean_vs_median.png",
+  width = 12,
+  height = 8
+)
+
+save_plot_hi(
+  p_scatter_spread,
+  "cluster_outputs/10_scatter_median_vs_sd.png",
+  width = 12,
+  height = 8
+)
+
+save_plot_hi(
+  p_scatter_q1_q3,
+  "cluster_outputs/11_scatter_q1_vs_q3.png",
+  width = 12,
+  height = 8
+)
+
+pdf("cluster_outputs/08_heatmap_with_dendrogram.pdf", width = 12, height = 10)
+ComplexHeatmap::draw(
+  ht,
+  heatmap_legend_side = "right",
+  annotation_legend_side = "right"
+)
+dev.off()
+
+write.csv(cluster_summary, "cluster_outputs/cluster_summary.csv", row.names = FALSE)
+write.csv(cluster_centers_scaled, "cluster_outputs/cluster_centers_scaled.csv", row.names = FALSE)
+write.csv(cluster_centers_original, "cluster_outputs/cluster_centers_original.csv", row.names = FALSE)
+write.csv(cluster_membership, "cluster_outputs/cluster_membership.csv", row.names = FALSE)
+
+cat("\n====================================\n")
+cat("K-MEANS CLUSTER SUMMARY\n")
+cat("====================================\n")
+print(cluster_summary)
+
+cat("\n====================================\n")
+cat("K-MEANS CLUSTER CENTERS (SCALED)\n")
+cat("====================================\n")
+print(cluster_centers_scaled)
+
+cat("\n====================================\n")
+cat("K-MEANS CLUSTER CENTERS (ORIGINAL UNITS)\n")
+cat("====================================\n")
+print(cluster_centers_original)
+
+cat("\n====================================\n")
+cat("CLUSTER MEMBERSHIP\n")
+cat("====================================\n")
+print(cluster_membership)
+
+cat("\nSaved all outputs in folder: cluster_outputs\n")
+
+p_k_dashboard <- p_elbow + p_sil_k + p_gap + patchwork::plot_layout(ncol = 3)
+print(p_k_dashboard)
+
+p_main_dashboard <- (p_scree | p_pca) / (p_loadings | p_silhouette)
+print(p_main_dashboard)
+
+print(p_scatter_mean_median)
+print(p_scatter_spread)
+print(p_scatter_q1_q3)
+
+print(p_box)
+print(p_pair)
+print(p_pacmap)
+
+ComplexHeatmap::draw(
+  ht,
+  heatmap_legend_side = "right",
+  annotation_legend_side = "right"
+)
+```
+
+
+```{r}
+cran_packages <- c(
+  "tidyverse",
+  "cluster",
+  "factoextra",
+  "ggrepel",
+  "patchwork",
+  "viridis",
+  "scales",
+  "GGally"
+)
+
+installed_pkgs <- rownames(installed.packages())
+
+for (pkg in cran_packages) {
+  if (!(pkg %in% installed_pkgs)) {
+    install.packages(pkg, dependencies = TRUE)
+  }
+}
+
+# LIBRARIES
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(ggrepel)
+library(patchwork)
+library(viridis)
+library(scales)
+library(GGally)
+
+
+clean_price <- function(x) {
+  x <- gsub("[\\$, ]", "", x)
+  suppressWarnings(as.numeric(x))
+}
+
+get_region <- function(df) {
+  if ("neighbourhood_cleansed" %in% names(df)) return("neighbourhood_cleansed")
+  if ("neighbourhood" %in% names(df)) return("neighbourhood")
+  if ("zipcode" %in% names(df)) return("zipcode")
+  stop("No neighborhood column found.")
+}
+
+wrap_text_vec <- function(x, width = 18) {
+  stringr::str_wrap(as.character(x), width = width)
+}
+
+safe_num <- function(x) suppressWarnings(as.numeric(x))
+
+detect_amenity <- function(x, pattern) {
+  stringr::str_detect(stringr::str_to_lower(dplyr::coalesce(x, "")), pattern)
+}
+
+theme_pro <- function() {
+  ggplot2::theme_minimal(base_size = 14) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 18, color = "#111827"),
+      plot.subtitle = ggplot2::element_text(size = 12, color = "#4B5563"),
+      axis.title = ggplot2::element_text(face = "bold", color = "#111827"),
+      axis.text = ggplot2::element_text(color = "#374151"),
+      strip.text = ggplot2::element_text(face = "bold", size = 11, color = "#111827"),
+      legend.position = "top",
+      legend.title = ggplot2::element_text(face = "bold"),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.grid.major = ggplot2::element_line(color = "#E5E7EB", linewidth = 0.4),
+      plot.margin = ggplot2::margin(12, 12, 12, 12)
+    )
+}
+
+save_plot_hi <- function(plot_obj, filename, width = 12, height = 8, dpi = 500) {
+  ggplot2::ggsave(
+    filename = filename,
+    plot = plot_obj,
+    width = width,
+    height = height,
+    dpi = dpi,
+    bg = "white"
+  )
+}
+
+cluster_cols <- c(
+  "Cluster 1" = "#2563EB",
+  "Cluster 2" = "#7C3AED",
+  "Cluster 3" = "#10B981",
+  "Cluster 4" = "#F59E0B",
+  "Cluster 5" = "#EF4444"
+)
+
+boston <- read.csv("listings_Boston.csv")
+jersey <- read.csv("listings_Jersey.csv")
+
+boston$price <- clean_price(boston$price)
+jersey$price <- clean_price(jersey$price)
+
+boston <- boston %>%
+  filter(!is.na(price), price > 0, price <= 1000)
+
+jersey <- jersey %>%
+  filter(!is.na(price), price > 0, price <= 1000)
+
+boston$region <- boston[[get_region(boston)]]
+jersey$region <- jersey[[get_region(jersey)]]
+
+boston$city <- "Boston"
+jersey$city <- "Jersey City"
+
+
+for (nm in c("accommodates", "bedrooms", "beds", "latitude", "longitude")) {
+  if (nm %in% names(boston)) boston[[nm]] <- safe_num(boston[[nm]])
+  if (nm %in% names(jersey)) jersey[[nm]] <- safe_num(jersey[[nm]])
+}
+
+if ("bathrooms" %in% names(boston)) {
+  boston$bathrooms_num <- if (is.character(boston$bathrooms)) readr::parse_number(boston$bathrooms) else safe_num(boston$bathrooms)
+} else {
+  boston$bathrooms_num <- NA_real_
+}
+
+if ("bathrooms" %in% names(jersey)) {
+  jersey$bathrooms_num <- if (is.character(jersey$bathrooms)) readr::parse_number(jersey$bathrooms) else safe_num(jersey$bathrooms)
+} else {
+  jersey$bathrooms_num <- NA_real_
+}
+
+if (!("amenities" %in% names(boston))) boston$amenities <- ""
+if (!("amenities" %in% names(jersey))) jersey$amenities <- ""
+
+data_all <- bind_rows(boston, jersey) %>%
+  filter(!is.na(region), trimws(region) != "")
+
+
+data_all <- data_all %>%
+  mutate(
+    has_tv = detect_amenity(amenities, "tv|television|hdtv|roku|chromecast"),
+    has_dishes = detect_amenity(amenities, "dishes and silverware|dishes|silverware"),
+    has_gym = detect_amenity(amenities, "gym|workout equipment|exercise equipment"),
+    has_parking = detect_amenity(amenities, "parking|garage|carport|driveway|street parking"),
+    has_cooking = detect_amenity(amenities, "cooking basics"),
+    has_pets = detect_amenity(amenities, "pets allowed"),
+    has_heating = detect_amenity(amenities, "heating"),
+    has_balcony = detect_amenity(amenities, "patio|balcony"),
+    has_hotwater = detect_amenity(amenities, "hot water"),
+    has_ac = detect_amenity(amenities, "air conditioning|ceiling fan|portable fans|window ac|central air"),
+
+    # added 5
+    has_wifi = detect_amenity(amenities, "wifi|internet|ethernet"),
+    has_washer = detect_amenity(amenities, "washer"),
+    has_dryer = detect_amenity(amenities, "dryer"),
+    has_workspace = detect_amenity(amenities, "dedicated workspace|workspace|desk"),
+    has_elevator = detect_amenity(amenities, "elevator")
+  )
+
+neighborhoods <- data_all %>%
+  group_by(city, region) %>%
+  summarise(
+    n_listings = n(),
+    mean_price = mean(price, na.rm = TRUE),
+    median_price = median(price, na.rm = TRUE),
+    sd_price = sd(price, na.rm = TRUE),
+    iqr_price = IQR(price, na.rm = TRUE),
+
+    mean_accommodates = mean(accommodates, na.rm = TRUE),
+    mean_bedrooms = mean(bedrooms, na.rm = TRUE),
+    mean_beds = mean(beds, na.rm = TRUE),
+    mean_bathrooms = mean(bathrooms_num, na.rm = TRUE),
+
+    tv_rate = mean(has_tv, na.rm = TRUE),
+    dishes_rate = mean(has_dishes, na.rm = TRUE),
+    gym_rate = mean(has_gym, na.rm = TRUE),
+    parking_rate = mean(has_parking, na.rm = TRUE),
+    cooking_rate = mean(has_cooking, na.rm = TRUE),
+    pets_rate = mean(has_pets, na.rm = TRUE),
+    heating_rate = mean(has_heating, na.rm = TRUE),
+    balcony_rate = mean(has_balcony, na.rm = TRUE),
+    hotwater_rate = mean(has_hotwater, na.rm = TRUE),
+    ac_rate = mean(has_ac, na.rm = TRUE),
+
+    wifi_rate = mean(has_wifi, na.rm = TRUE),
+    washer_rate = mean(has_washer, na.rm = TRUE),
+    dryer_rate = mean(has_dryer, na.rm = TRUE),
+    workspace_rate = mean(has_workspace, na.rm = TRUE),
+    elevator_rate = mean(has_elevator, na.rm = TRUE),
+
+    .groups = "drop"
+  ) %>%
+  filter(n_listings >= 5) %>%
+  mutate(
+    sd_price = tidyr::replace_na(sd_price, 0),
+    region_wrapped = wrap_text_vec(region, width = 16)
+  )
+
+upper_cut <- quantile(neighborhoods$median_price, 0.98, na.rm = TRUE)
+neighborhoods <- neighborhoods %>%
+  filter(median_price <= upper_cut)
+
+
+feature_df <- neighborhoods %>%
+  transmute(
+    log_price = log1p(median_price),
+    log_sd = log1p(sd_price),
+    log_iqr = log1p(iqr_price),
+    log_n_listings = log1p(n_listings),
+    log_accommodates = log1p(mean_accommodates),
+    log_bedrooms = log1p(mean_bedrooms),
+    log_beds = log1p(mean_beds),
+    log_bathrooms = log1p(mean_bathrooms),
+
+    tv_rate,
+    dishes_rate,
+    gym_rate,
+    parking_rate,
+    cooking_rate,
+    pets_rate,
+    heating_rate,
+    balcony_rate,
+    hotwater_rate,
+    ac_rate,
+    wifi_rate,
+    washer_rate,
+    dryer_rate,
+    workspace_rate,
+    elevator_rate
+  )
+
+scaled_features <- scale(feature_df)
+rownames(scaled_features) <- paste(neighborhoods$city, neighborhoods$region, sep = " | ")
+
+
+
+pca <- prcomp(scaled_features, center = TRUE, scale. = FALSE)
+
+cum_var <- cumsum((pca$sdev^2) / sum(pca$sdev^2))
+n_pc <- which(cum_var >= 0.90)[1]
+if (is.na(n_pc)) n_pc <- min(3, ncol(pca$x))
+
+pc_scores <- pca$x[, 1:n_pc, drop = FALSE]
+
+plot_scores <- as.data.frame(pca$x[, 1:2, drop = FALSE])
+names(plot_scores) <- c("PC1", "PC2")
+
+var_expl <- summary(pca)$importance[2, 1:2]
+
+
+
+candidate_k <- 2:5
+min_cluster_size <- 3
+
+sil_results <- data.frame(
+  k = integer(),
+  avg_sil = numeric(),
+  min_cluster = integer()
+)
+
+pam_models <- list()
+
+for (k in candidate_k) {
+  pam_fit <- pam(pc_scores, k = k)
+  sil <- silhouette(pam_fit$clustering, dist(pc_scores))
+  cl_sizes <- table(pam_fit$clustering)
+
+  sil_results <- bind_rows(
+    sil_results,
+    data.frame(
+      k = k,
+      avg_sil = mean(sil[, "sil_width"]),
+      min_cluster = min(cl_sizes)
+    )
+  )
+
+  pam_models[[as.character(k)]] <- pam_fit
+}
+
+print(sil_results)
+
+eligible_k <- sil_results %>%
+  filter(min_cluster >= min_cluster_size)
+
+if (nrow(eligible_k) == 0) {
+  best_k <- sil_results$k[which.max(sil_results$avg_sil)]
+} else {
+  best_k <- eligible_k$k[which.max(eligible_k$avg_sil)]
+}
+
+cat("Chosen k =", best_k, "\n")
+
+best_pam <- pam_models[[as.character(best_k)]]
+
+
+neighborhoods$cluster_num <- best_pam$clustering
+
+cluster_order <- neighborhoods %>%
+  group_by(cluster_num) %>%
+  summarise(cluster_median = median(median_price), .groups = "drop") %>%
+  arrange(cluster_median) %>%
+  mutate(cluster_label = paste("Cluster", row_number()))
+
+label_map <- setNames(cluster_order$cluster_label, cluster_order$cluster_num)
+
+neighborhoods$cluster <- factor(
+  label_map[as.character(neighborhoods$cluster_num)],
+  levels = cluster_order$cluster_label
+)
+
+cluster_cols_use <- cluster_cols[levels(neighborhoods$cluster)]
+
+
+cluster_summary <- neighborhoods %>%
+  group_by(cluster) %>%
+  summarise(
+    n_regions = n(),
+    avg_price = round(mean(median_price), 2),
+    avg_sd = round(mean(sd_price), 2),
+    avg_accommodates = round(mean(mean_accommodates), 2),
+    avg_tv = round(mean(tv_rate), 2),
+    avg_dishes = round(mean(dishes_rate), 2),
+    avg_gym = round(mean(gym_rate), 2),
+    avg_parking = round(mean(parking_rate), 2),
+    avg_cooking = round(mean(cooking_rate), 2),
+    avg_pets = round(mean(pets_rate), 2),
+    avg_heating = round(mean(heating_rate), 2),
+    avg_balcony = round(mean(balcony_rate), 2),
+    avg_hotwater = round(mean(hotwater_rate), 2),
+    avg_ac = round(mean(ac_rate), 2),
+    avg_wifi = round(mean(wifi_rate), 2),
+    avg_washer = round(mean(washer_rate), 2),
+    avg_dryer = round(mean(dryer_rate), 2),
+    avg_workspace = round(mean(workspace_rate), 2),
+    avg_elevator = round(mean(elevator_rate), 2),
+    .groups = "drop"
+  )
+
+print(cluster_summary)
+
+
+
+p_elbow <- fviz_nbclust(pc_scores, kmeans, method = "wss") +
+  labs(
+    title = "Elbow method",
+    subtitle = "Used to assess possible numbers of clusters",
+    x = "Number of clusters (k)",
+    y = "Within-cluster sum of squares"
+  ) +
+  theme_pro()
+
+p_sil <- ggplot(sil_results, aes(x = k, y = avg_sil)) +
+  geom_line(color = "#2563EB", linewidth = 1) +
+  geom_point(size = 3, color = "#2563EB") +
+  labs(
+    title = "Silhouette test",
+    subtitle = "Higher values indicate better cluster separation",
+    x = "Number of clusters (k)",
+    y = "Average silhouette width"
+  ) +
+  theme_pro()
+
+cluster_sizes <- neighborhoods %>%
+  count(cluster)
+
+p_size <- ggplot(cluster_sizes, aes(x = cluster, y = n, fill = cluster)) +
+  geom_col(show.legend = FALSE) +
+  scale_fill_manual(values = cluster_cols_use) +
+  labs(
+    title = "Cluster sizes",
+    subtitle = "Balanced clusters are preferred",
+    x = "Cluster",
+    y = "Number of neighborhoods"
+  ) +
+  theme_pro()
+
+
+p_pca <- bind_cols(neighborhoods, plot_scores) %>%
+  ggplot(aes(PC1, PC2, color = cluster, size = median_price)) +
+  geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    aes(label = region_wrapped),
+    size = 3.1,
+    max.overlaps = 35,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  scale_color_manual(values = cluster_cols_use) +
+  scale_size_continuous(range = c(3, 9), labels = scales::dollar_format()) +
+  labs(
+    title = "PCA scatter plot",
+    subtitle = paste0(
+      "PC1 explains ", percent(var_expl[1], accuracy = 0.1),
+      "; PC2 explains ", percent(var_expl[2], accuracy = 0.1)
+    ),
+    x = "Principal Component 1",
+    y = "Principal Component 2",
+    color = "Cluster",
+    size = "Median price"
+  ) +
+  theme_pro()
+
+
+
+p_box <- ggplot(neighborhoods, aes(cluster, median_price, fill = cluster)) +
+  geom_boxplot(alpha = 0.9, outlier.alpha = 0.5) +
+  geom_jitter(width = 0.15, alpha = 0.65, size = 2) +
+  scale_fill_manual(values = cluster_cols_use) +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Median price by cluster",
+    subtitle = "This shows whether the clusters differ meaningfully in price level",
+    x = "Cluster",
+    y = "Neighborhood median price"
+  ) +
+  theme_pro()
+
+
+
+p_scatter_mean_median <- ggplot(
+  neighborhoods,
+  aes(mean_price, median_price, color = cluster, size = n_listings)
+) +
+  geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    aes(label = region_wrapped),
+    size = 3,
+    max.overlaps = 30,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  scale_color_manual(values = cluster_cols_use) +
+  scale_size_continuous(range = c(3, 8)) +
+  scale_x_continuous(labels = dollar_format()) +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Mean vs median price",
+    subtitle = "Shows overall price structure by neighborhood",
+    x = "Mean price",
+    y = "Median price",
+    color = "Cluster",
+    size = "Listings"
+  ) +
+  theme_pro()
+
+p_scatter_spread <- ggplot(
+  neighborhoods,
+  aes(median_price, sd_price, color = cluster, size = n_listings)
+) +
+  geom_point(alpha = 0.92) +
+  ggrepel::geom_text_repel(
+    aes(label = region_wrapped),
+    size = 3,
+    max.overlaps = 30,
+    box.padding = 0.45,
+    min.segment.length = 0
+  ) +
+  scale_color_manual(values = cluster_cols_use) +
+  scale_size_continuous(range = c(3, 8)) +
+  scale_x_continuous(labels = dollar_format()) +
+  scale_y_continuous(labels = dollar_format()) +
+  labs(
+    title = "Median price vs price spread",
+    subtitle = "Higher points have more variable prices within the neighborhood",
+    x = "Median price",
+    y = "Standard deviation of price",
+    color = "Cluster",
+    size = "Listings"
+  ) +
+  theme_pro()
+
+
+
+p_density <- ggplot(neighborhoods, aes(median_price, fill = cluster)) +
+  geom_density(alpha = 0.35) +
+  scale_fill_manual(values = cluster_cols_use) +
+  scale_x_continuous(labels = dollar_format()) +
+  labs(
+    title = "Density of median prices by cluster",
+    subtitle = "Used to check whether the price distributions overlap strongly",
+    x = "Neighborhood median price",
+    y = "Density",
+    fill = "Cluster"
+  ) +
+  theme_pro()
+
+
+profile_long <- neighborhoods %>%
+  group_by(cluster) %>%
+  summarise(
+    median_price = mean(median_price),
+    sd_price = mean(sd_price),
+    iqr_price = mean(iqr_price),
+    mean_accommodates = mean(mean_accommodates),
+    tv_rate = mean(tv_rate),
+    dishes_rate = mean(dishes_rate),
+    gym_rate = mean(gym_rate),
+    parking_rate = mean(parking_rate),
+    cooking_rate = mean(cooking_rate),
+    pets_rate = mean(pets_rate),
+    heating_rate = mean(heating_rate),
+    balcony_rate = mean(balcony_rate),
+    hotwater_rate = mean(hotwater_rate),
+    ac_rate = mean(ac_rate),
+    wifi_rate = mean(wifi_rate),
+    washer_rate = mean(washer_rate),
+    dryer_rate = mean(dryer_rate),
+    workspace_rate = mean(workspace_rate),
+    elevator_rate = mean(elevator_rate),
+    .groups = "drop"
+  ) %>%
+  pivot_longer(-cluster, names_to = "feature", values_to = "value") %>%
+  group_by(feature) %>%
+  mutate(value_scaled = as.numeric(scale(value))) %>%
+  ungroup()
+
+p_profile <- ggplot(profile_long, aes(x = feature, y = value_scaled, group = cluster, color = cluster)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = cluster_cols_use) +
+  labs(
+    title = "Cluster profiles",
+    subtitle = "Scaled comparison of price, spread, accommodation, and selected amenities",
+    x = NULL,
+    y = "Scaled value",
+    color = "Cluster"
+  ) +
+  theme_pro() +
+  theme(axis.text.x = element_text(angle = 35, hjust = 1))
+
+pair_df <- neighborhoods %>%
+  select(
+    cluster,
+    median_price,
+    sd_price,
+    iqr_price,
+    mean_accommodates,
+    parking_rate,
+    gym_rate,
+    wifi_rate
+  ) %>%
+  rename(
+    `Median price` = median_price,
+    `SD price` = sd_price,
+    `IQR price` = iqr_price,
+    `Accommodates` = mean_accommodates,
+    `Parking rate` = parking_rate,
+    `Gym rate` = gym_rate,
+    `WiFi rate` = wifi_rate
+  )
+
+p_pair <- GGally::ggpairs(
+  pair_df,
+  columns = 2:6,
+  ggplot2::aes(color = cluster, alpha = 0.8),
+  upper = list(continuous = GGally::wrap("cor", size = 3.5)),
+  lower = list(continuous = GGally::wrap("points", size = 1.6)),
+  diag = list(continuous = GGally::wrap("densityDiag"))
+) +
+  ggplot2::theme_bw(base_size = 11)
+
+
+dir.create("cluster_outputs_improved", showWarnings = FALSE)
+
+write.csv(cluster_summary, "cluster_outputs_improved/cluster_summary.csv", row.names = FALSE)
+write.csv(neighborhoods, "cluster_outputs_improved/neighborhood_cluster_membership.csv", row.names = FALSE)
+write.csv(sil_results, "cluster_outputs_improved/cluster_test_results.csv", row.names = FALSE)
+
+
+save_plot_hi(
+  p_elbow + p_sil + p_size + patchwork::plot_layout(ncol = 3),
+  "cluster_outputs_improved/01_cluster_diagnostics.png",
+  width = 17,
+  height = 5.5
+)
+
+save_plot_hi(
+  p_pca,
+  "cluster_outputs_improved/02_pca_scatter.png",
+  width = 12,
+  height = 8
+)
+
+save_plot_hi(
+  p_box,
+  "cluster_outputs_improved/03_boxplot_median_price.png",
+  width = 11,
+  height = 7
+)
+
+save_plot_hi(
+  p_scatter_mean_median,
+  "cluster_outputs_improved/04_scatter_mean_vs_median.png",
+  width = 12,
+  height = 8
+)
+
+save_plot_hi(
+  p_scatter_spread,
+  "cluster_outputs_improved/05_scatter_price_spread.png",
+  width = 12,
+  height = 8
+)
+
+save_plot_hi(
+  p_density,
+  "cluster_outputs_improved/06_density_plot.png",
+  width = 12,
+  height = 8
+)
+
+save_plot_hi(
+  p_profile,
+  "cluster_outputs_improved/07_cluster_profile_plot.png",
+  width = 14,
+  height = 8
+)
+
+ggplot2::ggsave(
+  filename = "cluster_outputs_improved/08_pair_plot.png",
+  plot = p_pair,
+  width = 14,
+  height = 12,
+  dpi = 400,
+  bg = "white"
+)
+
+
+cat("\n====================================\n")
+cat("CLUSTER TEST RESULTS\n")
+cat("====================================\n")
+print(sil_results)
+
+cat("\n====================================\n")
+cat("CHOSEN NUMBER OF CLUSTERS\n")
+cat("====================================\n")
+print(best_k)
+
+cat("\n====================================\n")
+cat("CLUSTER SUMMARY\n")
+cat("====================================\n")
+print(cluster_summary)
+
+cat("\nSaved all outputs in folder: cluster_outputs_improved\n")
+
+print(p_elbow + p_sil + p_size + patchwork::plot_layout(ncol = 3))
+print(p_pca)
+print(p_box)
+print(p_scatter_mean_median)
+print(p_scatter_spread)
+print(p_density)
+print(p_profile)
+print(p_pair)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+library(dplyr)
+library(ggplot2)
+library(viridis)
+
+new_data$city <- "Boston"
+Jersey_data$city <- "Jersey City"
+
+
+combined_data <- bind_rows(new_data, Jersey_data)
+
+all_amenities <- sort(unique(unlist(combined_data$amenities)))
+
+amenity_matrix <- t(sapply(combined_data$amenities, function(x) {
+  as.numeric(all_amenities %in% x)
+}))
+
+colnames(amenity_matrix) <- all_amenities
+amenity_matrix <- as.data.frame(amenity_matrix)
+
+amenity_matrix <- amenity_matrix[, apply(amenity_matrix, 2, var) > 0]
+
+pca_result <- prcomp(
+  amenity_matrix,
+  center = TRUE,
+  scale. = TRUE
+)
+
+
+
+pca_df <- as.data.frame(pca_result$x)
+
+pca_df$city <- combined_data$city
+pca_df$price <- combined_data$price
+pca_df$price_per_guest <- combined_data$price_per_guest
+
+
+pca_var <- pca_result$sdev^2
+pca_var_percent <- round(100 * pca_var / sum(pca_var), 1)
+
+
+ggplot(pca_df, aes(PC1, PC2, color = city)) +
+  geom_point(alpha = 0.6, size = 2) +
+  labs(
+    title = "PCA of Airbnb Listings (Boston vs Jersey City)",
+    subtitle = "Comparison of listing structures based on amenities",
+    x = paste0("PC1 (", pca_var_percent[1], "% variance)"),
+    y = paste0("PC2 (", pca_var_percent[2], "% variance)")
+  ) +
+  theme_minimal(base_size = 14)
+
+
+
+ggplot(pca_df, aes(PC1, PC2, color = price)) +
+  geom_point(alpha = 0.6, size = 2) +
+  scale_color_viridis_c() +
+  labs(
+    title = "PCA of Listings Colored by Price",
+    subtitle = "Shows how amenities relate to pricing structure"
+  ) +
+  theme_minimal()
+
+
+set.seed(123)
+
+clusters <- kmeans(scale(amenity_matrix), centers = 4, nstart = 25)
+pca_df$cluster <- as.factor(clusters$cluster)
+
+ggplot(pca_df, aes(PC1, PC2, color = cluster)) +
+  geom_point(alpha = 0.7) +
+  labs(
+    title = "Amenity-Based Clusters Across Cities",
+    subtitle = "Segments of Airbnb listings"
+  ) +
+  theme_minimal()
+
+
+scree_df <- data.frame(
+  PC = paste0("PC", 1:length(pca_var_percent)),
+  Variance = pca_var_percent
+)
+
+ggplot(scree_df[1:10, ], aes(x = PC, y = Variance)) +
+  geom_col(fill = "steelblue") +
+  labs(
+    title = "Scree Plot",
+    y = "Variance Explained (%)"
+  ) +
+  theme_minimal()
+```
+
+

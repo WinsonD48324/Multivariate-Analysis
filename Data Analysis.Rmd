@@ -1,0 +1,1017 @@
+---
+title: "BTRY 4100"
+author: "Winson & Daniel"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#DATA ANALYSIS FILE
+#Load Library
+library(ggplot2)
+library(dplyr)
+library(knitr)
+library(sf)
+#Importing dataset 
+listings_Boston <- read.csv("C:/Users/Winson/Downloads/listings_Boston.csv", header = TRUE)
+#Shows the first few elements
+head(listings_Boston)
+#Number of rows in dataset
+nrow(listings_Boston)
+listings_Boston[listings_Boston$price > 10000, ]
+```
+
+```{r}
+#Filters out empty prices 
+new_data <- listings_Boston[listings_Boston$price!= "", ]
+head(new_data)
+new_data[new_data$price > 10000, ]
+new_data$city <- "Boston"
+
+#Filters out symbols so that price can be a numeric
+new_data$price <- gsub("[\\$, ]", "", new_data$price)
+new_data$price <- as.numeric(new_data$price)
+tax_rate <- 0.1525
+new_data$price_with_tax <- new_data$price * (1 + tax_rate)
+new_data
+```
+
+```{r}
+#Makes the amenities a list to work with
+new_data$amenities <- gsub("\\[|\\]|\"", "", new_data$amenities)
+new_data$amenities <- strsplit(new_data$amenities, ", ")
+head(new_data)
+#Checks to see in amenities which if the amenities are missing
+total_empty <- sum(sapply(new_data$amenities, length) == 0)
+total_empty
+#Filters out the ones if the amenities are missing
+new_data <- new_data %>%
+  filter(sapply(amenities, length) > 0)
+new_data <- subset(new_data, price <= 1000)
+new_data <- subset(new_data, minimum_nights < 120)
+#Checks the outliers 
+boston_outliers <- new_data[new_data$price >= 750 & new_data$price <= 1000, ]
+
+#Calculates the price per guest for Boston 
+new_data$price_per_guest <- new_data$price / new_data$accommodates
+new_data$price_per_guest <- as.numeric(new_data$price_per_guest)
+
+```
+
+```{r}
+listings_Jersey <- read.csv("C:/Users/Winson/Downloads/listings_Jersey.csv", header= TRUE)
+#Filters out empty prices 
+Jersey_data <- listings_Jersey[listings_Jersey$price!= "", ]
+head(Jersey_data)
+Jersey_data$city <- "Jersey"
+#Filters out symbols so that price can be a numeric
+Jersey_data$price <- gsub("[\\$, ]", "", Jersey_data$price)
+Jersey_data$price <- as.numeric(Jersey_data$price)
+tax_rate <- 0.09625
+Jersey_data$price_with_tax <- Jersey_data$price * (1 + tax_rate)
+```
+
+```{r}
+Jersey_data$amenities <- gsub("\\[|\\]|\"", "", Jersey_data$amenities)
+Jersey_data$amenities <- strsplit(Jersey_data$amenities, ", ")
+head(Jersey_data)
+#Checks to see in amenities which if the amenities are missing
+total_gone <- sum(sapply(Jersey_data$amenities, length) == 0)
+total_gone
+#Filters out the ones if the amenities are missing
+Jersey_data <- Jersey_data %>%
+  filter(sapply(amenities, length) > 0)
+Jersey_data <- subset(Jersey_data, price <= 1000)
+Jersey_data <- subset(Jersey_data, minimum_nights < 120)
+
+# Checks the price per guest for Jersey City
+Jersey_data$price_per_guest <- Jersey_data$price / Jersey_data$accommodates
+Jersey_data$price_per_guest <- as.numeric(Jersey_data$price_per_guest)
+```
+```{r}
+new_data$amenities <- gsub("\\[|\\]|\"", "", new_data$amenities)
+new_data$amenities <- strsplit(new_data$amenities, ", ")
+
+clean_amenity <- function(x) {
+  x <- tolower(x)
+  x <- trimws(x)
+
+  x <- gsub("\\\\u2013|–|—", " ", x)
+  x <- gsub("\\\\u2019|u2019|u00e9", " ", x)
+  x <- gsub("&", "and", x)
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  remove_exact <- c(
+    "2 5 years old", "5 10 years old", "and 10 years old", "and 5 10 years old",
+    "and dresser", "and wardrobe", "every day", "every day available",
+    "7 days a week available", "open 24 hours", "open specific hours",
+    "monday to friday available", "it varies", "small", "gas",
+    "under the counter", "bosch", "integra", "martin logan", "toshiba",
+    "disney", "coffee", "dove", "heated"
+  )
+
+  if (x %in% remove_exact) return(NA_character_)
+
+  x <- gsub("\\balways at the listing\\b", "", x)
+  x <- gsub("\\bavailable upon request\\b", "", x)
+  x <- gsub("\\bdepending on availability\\b", "", x)
+  x <- gsub("\\bavailable all year\\b", "", x)
+  x <- gsub("\\bavailable seasonally\\b", "", x)
+  x <- gsub("\\bon property\\b", "", x)
+  x <- gsub("\\bnearby\\b", " nearby", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("body wash|shower gel", x)) return("body wash")
+  if (grepl("soap", x)) return("body soap")
+  if (grepl("toothpaste", x)) return(NA_character_)
+
+
+  if (grepl("tv|television|roku|chromecast|premium cable|standard cable|amazon prime video|netflix|hulu|hbo max", x)) return("tv")
+  if (grepl("dvd player", x)) return("dvd player")
+  if (grepl("board games|arcade games|life size games", x)) return("games")
+  if (grepl("game console|ps3|ps4|xbox|nintendo switch", x)) return("game console")
+  if (grepl("piano", x)) return("piano")
+  if (grepl("record player", x)) return("record player")
+  if (grepl("sound system|speaker|alexa|google home|google assistant|bluetooth", x)) return("sound system")
+
+  if (grepl("kitchen", x)) return("kitchen")
+  if (grepl("microwave", x)) return("microwave")
+  if (grepl("oven", x)) return("oven")
+  if (grepl("stove|burners", x)) return("stove")
+  if (grepl("refrigerator|fridge", x)) return("refrigerator")
+  if (grepl("freezer", x)) return("freezer")
+  if (grepl("dishwasher", x)) return("dishwasher")
+  if (grepl("coffee maker|french press|pour over coffee|nespresso", x)) return("coffee maker")
+  if (grepl("rice maker", x)) return("rice maker")
+  if (grepl("bread maker", x)) return("bread maker")
+  if (grepl("blender", x)) return("blender")
+  if (grepl("toaster", x)) return("toaster")
+  if (grepl("baking sheet", x)) return("baking sheet")
+  if (grepl("barbecue utensils", x)) return("bbq utensils")
+  if (grepl("cooking basics", x)) return("cooking basics")
+  if (grepl("dishes and silverware", x)) return("dishes and silverware")
+  if (grepl("wine glasses", x)) return("wine glasses")
+  if (grepl("dining table", x)) return("dining table")
+  if (grepl("breakfast", x)) return("breakfast")
+
+  if (grepl("crib", x)) return("crib")
+  if (grepl("high chair|booster seat", x)) return("high chair")
+  if (grepl("baby bath", x)) return("baby bath")
+  if (grepl("baby monitor", x)) return("baby monitor")
+  if (grepl("changing table", x)) return("changing table")
+  if (grepl("children s books and toys|books and reading material", x)) return("books and toys")
+  if (grepl("children s bikes|bikes", x)) return("bikes")
+  if (grepl("children s dinnerware", x)) return("children's dinnerware")
+  if (grepl("baby safety gates|outlet covers|table corner guards|window guards", x)) return("child safety features")
+  if (grepl("children s playroom|outdoor playground", x)) return("play area")
+  if (grepl("babysitter recommendations", x)) return("babysitter recommendations")
+
+  if (grepl("bathtub|bidet", x)) return("bathtub/bidet")
+  if (grepl("hair dryer", x)) return("hair dryer")
+  if (grepl("shampoo", x)) return("shampoo")
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("hot water", x)) return("hot water")
+  if (grepl("bed linens", x)) return("bed linens")
+  if (grepl("extra pillows and blankets", x)) return("extra pillows and blankets")
+  if (grepl("hangers", x)) return("hangers")
+  if (grepl("closet|wardrobe|clothing storage", x)) return("clothing storage")
+  if (grepl("room darkening shades", x)) return("room darkening shades")
+  if (grepl("mosquito net", x)) return("mosquito net")
+  if (grepl("lock on bedroom door", x)) return("lock on bedroom door")
+  if (grepl("private living room", x)) return("private living room")
+
+  if (grepl("air conditioning|ceiling fan|portable fans", x)) return("air conditioning/fan")
+  if (grepl("heating|portable heater", x)) return("heating")
+  if (grepl("fireplace", x)) return("fireplace")
+
+  if (grepl("washer", x)) return("washer")
+  if (grepl("dryer", x)) return("dryer")
+  if (grepl("laundromat nearby", x)) return("laundromat nearby")
+  if (grepl("cleaning products", x)) return("cleaning products")
+  if (grepl("cleaning available during stay|housekeeping", x)) return("housekeeping")
+
+  if (grepl("wifi|ethernet", x)) return("internet")
+  if (grepl("self check in|lockbox|smart lock", x)) return("self check-in")
+  if (grepl("private entrance", x)) return("private entrance")
+  if (grepl("elevator", x)) return("elevator")
+  if (grepl("single level home", x)) return("single level home")
+  if (grepl("building staff|host greets you", x)) return("host service")
+  if (grepl("carbon monoxide alarm", x)) return("carbon monoxide alarm")
+  if (grepl("smoke alarm", x)) return("smoke alarm")
+  if (grepl("fire extinguisher", x)) return("fire extinguisher")
+  if (grepl("first aid kit", x)) return("first aid kit")
+  if (grepl("safe", x)) return("safe")
+  if (grepl("exterior security cameras|noise decibel monitors", x)) return("security device")
+
+  if (grepl("patio|balcony", x)) return("patio/balcony")
+  if (grepl("outdoor dining area|outdoor furniture|sun loungers|hammock", x)) return("outdoor seating")
+  if (grepl("bbq grill", x)) return("bbq grill")
+  if (grepl("fire pit", x)) return("fire pit")
+  if (grepl("hot tub", x)) return("hot tub")
+  if (grepl("pool|lap pool", x)) return("pool")
+  if (grepl("sauna", x)) return("sauna")
+  if (grepl("gym|exercise equipment|free weights|stationary bike|rowing|treadmill|workout bench|yoga mat|elliptical", x)) return("gym/workout equipment")
+  if (grepl("ping pong table|pool table", x)) return("game table")
+  if (grepl("kayak", x)) return("kayak")
+  if (grepl("boat slip", x)) return("boat slip")
+  if (grepl("ev charger|tesla only|level 1|level 2", x)) return("ev charger")
+
+  if (grepl("view|waterfront", x)) return("view")
+
+  if (grepl("parking|garage", x)) return("parking")
+  if (grepl("pets allowed", x)) return("pets allowed")
+  if (grepl("long term stays allowed", x)) return("long term stays allowed")
+  if (grepl("luggage dropoff allowed", x)) return("luggage dropoff allowed")
+  if (grepl("essentials", x)) return("essentials")
+  if (grepl("iron", x)) return("iron")
+  if (grepl("bbq utensils", x)) return("bbq utensils")
+  if (grepl("smoking allowed", x)) return("smoking allowed")
+
+  remove_patterns <- c(
+    "^c ", "^and ", "^there are ", "^varies", "^varied", "^variety",
+    "^various", "^usually ", "^liquid ", "^generic ", "^organic ",
+    "^eco ", "^premium ", "^private ", "^shared "
+  )
+
+  for (pat in remove_patterns) {
+    if (grepl(pat, x)) return(NA_character_)
+  }
+
+  return(x)
+}
+
+new_data$amenities <- lapply(new_data$amenities, function(x) {
+  x <- sapply(x, clean_amenity)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+all_amenities <- sort(unique(unlist(new_data$amenities)))
+
+cat("Total unique cleaned amenities:", length(all_amenities), "\n\n")
+print(all_amenities)
+
+amenities_list <- data.frame(Amenity = all_amenities)
+
+amenity_counts <- sort(table(unlist(new_data$amenities)), decreasing = TRUE)
+print(amenity_counts)
+
+
+
+final_cleanup <- function(x) {
+  x <- trimws(tolower(x))
+  
+  if (x %in% c(
+    "100 vegan and cruelty free",
+    "7 days a week available at extra cost",
+    "every day available at extra cost",
+    "monday to friday available at extra cost",
+    "gilchrist and soames"
+  )) return(NA_character_)
+  
+  if (x %in% c("ac split type ductless system", "window ac unit")) return("air conditioning/fan")
+  if (x == "backyard fully fenced") return("backyard")
+  if (x == "beach access beachfront") return("beach access")
+  if (x == "body wash") return("body soap")
+  if (x %in% c("espresso machine", "keurig coffee machine")) return("coffee maker")
+  if (x == "free resort access") return("resort access")
+  if (x == "free carport on premises 1 space") return("parking")
+  if (x == "keypad") return("self check-in")
+  
+  return(x)
+}
+
+new_data$amenities <- lapply(new_data$amenities, function(x) {
+  x <- sapply(x, final_cleanup)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+all_amenities <- sort(unique(unlist(new_data$amenities)))
+
+cat("Total unique cleaned amenities:", length(all_amenities), "\n\n")
+print(all_amenities)
+amenities_list <- data.frame(Amenity = all_amenities)
+write.csv(amenities_list, "final_cleaned_amenities_v2.csv", row.names = FALSE)
+
+amenity_counts <- sort(table(unlist(new_data$amenities)), decreasing = TRUE)
+print(amenity_counts)
+
+
+```
+
+
+```{r}
+
+
+boston_all_amenities <- sort(unique(unlist(new_data$amenities)))
+
+cat("Total unique raw amenities in Boston:", length(boston_all_amenities), "\n\n")
+print(boston_all_amenities)
+
+boston_amenities_list <- data.frame(Amenity = boston_all_amenities)
+print(boston_amenities_list)
+
+
+jersey_all_amenities <- sort(unique(unlist(Jersey_data$amenities)))
+
+cat("Total unique raw amenities in Jersey:", length(jersey_all_amenities), "\n\n")
+print(jersey_all_amenities)
+
+jersey_amenities_list <- data.frame(Amenity = jersey_all_amenities)
+print(jersey_amenities_list)
+
+
+# STEP 0: make sure amenities are split into lists
+Jersey_data$amenities <- gsub("\\[|\\]|\"", "", Jersey_data$amenities)
+Jersey_data$amenities <- strsplit(Jersey_data$amenities, ", ")
+
+# remove rows with empty amenities if needed
+Jersey_data <- Jersey_data %>%
+  filter(sapply(amenities, length) > 0)
+
+
+clean_amenity <- function(x) {
+  x <- tolower(x)
+  x <- trimws(x)
+
+  x <- gsub("\\\\u2013|–|—", " ", x)
+  x <- gsub("\\\\u2019|\\\\u00e9|u2019|u00e9", " ", x)
+  x <- gsub("&", "and", x)
+  x <- gsub("[[:punct:]]+", " ", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  x <- gsub("\\balways at the listing\\b", "", x)
+  x <- gsub("\\bavailable upon request\\b", "", x)
+  x <- gsub("\\bdepending on availability\\b", "", x)
+  x <- gsub("\\bavailable all year\\b", "", x)
+  x <- gsub("\\bavailable seasonally\\b", "", x)
+  x <- gsub("\\bavailable at extra cost\\b", "", x)
+  x <- gsub("\\bon property\\b", "", x)
+  x <- gsub("\\bin building\\b", "", x)
+  x <- gsub("\\bin unit\\b", "", x)
+  x <- gsub("\\boff premises\\b", "", x)
+  x <- gsub("\\bon premises\\b", "", x)
+  x <- gsub("\\b1 space\\b|\\b2 spaces\\b|\\b4 spaces\\b", "", x)
+  x <- gsub("\\b1 day a week\\b|\\b2 days a week\\b|\\b3 days a week\\b", "", x)
+  x <- gsub("\\bmonday\\b|\\btuesday\\b|\\bwednesday\\b|\\bthursday\\b|\\bfriday\\b|\\bsaturday\\b|\\bsunday\\b", "", x)
+  x <- gsub("\\bopen 24 hours\\b|\\bopen specific hours\\b", "", x)
+  x <- gsub("\\b2 5 years old\\b|\\b5 10 years old\\b|\\b10 years old\\b|\\b10 years old\\b", "", x)
+  x <- gsub("\\band 10 years old\\b|\\band 5 10 years old\\b|\\band dresser\\b|\\band wardrobe\\b", "", x)
+  x <- gsub("\\bfor ages .*", "", x)
+  x <- gsub("\\bfrom .*", "", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  remove_exact <- c(
+    "", ".", "small", "gas", "electric", "heated", "coffee", "dove",
+    "disney", "fire tv", "apple tv", "roku", "netflix", "hulu", "hbo max",
+    "amazon prime video", "premium cable", "standard cable",
+    "open 24 hours", "open specific hours", "monday", "tuesday",
+    "wednesday", "thursday", "friday", "saturday", "sunday",
+    "every day", "thursday available at extra cost", "friday available at extra cost",
+    "saltwater", "native", "wood burning"
+  )
+  if (x %in% remove_exact) return(NA_character_)
+
+  x <- gsub("\\b(samsung|lg|bosch|whirlpool|frigidaire|ge|general electric|kitchenaid|kitchen aid|maytag|amana|aeg|avanti|forno|haier|kenmore|jenn air|hotpoint|magic chef|midea|samsung bespoke|fisher paykel|fisher and paykel|bluestar|gourmia|cuisinart|summit|oster|hotpoint|onkyo|sonos|sony|bose|vizio|crosley|echo dot|wonderboom|public goods|aesop|aveda|beekman|bergman kelly|cremo|dial|dr bronner s|ginger lily farms|ginger lilly farms|h20|hotel brand|infuse|molten brown|native|nivea|ogx|olay|pantene|paya|papaya|saltair|satinique|suave|tresemme|tresseme|v05|trader joe s|l or eal|dominican magic avocado|marula soul|g and h organic|silkience|papaya|professional salon quality|salon care|costco carries brands|what is available|various brands|whole foods|365|bath amenity|eco amenities|public good|luxury|regular|standard|generic|organic|basic|different|changes|changes from time to time|one brand|the one available|brand changes|varies|variety|various|available|any|etc)\\b", "", x)
+  x <- gsub("\\s+", " ", x)
+  x <- trimws(x)
+
+  if (grepl("tv|hdtv|television|roku|chromecast|fire tv|apple tv|netflix|hulu|hbo|max|premium cable|standard cable|disney|dvd player", x)) {
+    if (grepl("dvd player", x)) return("dvd player")
+    return("tv")
+  }
+
+  if (grepl("wifi|fast wifi|ethernet|pocket wifi|mbps", x)) return("internet")
+
+  if (grepl("shampoo", x)) return("shampoo")
+  if (grepl("conditioner", x)) return("conditioner")
+  if (grepl("body soap|body wash|shower gel|soap", x)) return("body soap")
+
+  if (grepl("sound system|speaker|bluetooth", x)) return("sound system")
+  if (grepl("record player", x)) return("record player")
+  if (grepl("piano", x)) return("piano")
+
+  if (grepl("board games|arcade games|life size games", x)) return("games")
+  if (grepl("game console|ps4|ps5|xbox|nintendo|wii", x)) return("game console")
+  if (grepl("movie theater", x)) return("movie theater")
+  if (grepl("theme room", x)) return("theme room")
+  if (grepl("ping pong table|pool table", x)) return("game table")
+
+  if (grepl("kitchenette|kitchen", x)) return("kitchen")
+  if (grepl("microwave", x)) return("microwave")
+  if (grepl("dishwasher", x)) return("dishwasher")
+  if (grepl("refrigerator|fridge|mini fridge|undercounter", x)) return("refrigerator")
+  if (grepl("oven|double oven|single oven|speed oven|air fryer oven", x)) return("oven")
+  if (grepl("stove|burners|induction stove|electric stove|gas stove", x)) return("stove")
+  if (grepl("coffee maker|french press|keurig coffee machine|nespresso|pour over coffee|espresso machine", x)) return("coffee maker")
+  if (grepl("toaster", x)) return("toaster")
+  if (grepl("blender", x)) return("blender")
+  if (grepl("rice maker", x)) return("rice maker")
+  if (grepl("bread maker", x)) return("bread maker")
+  if (grepl("baking sheet", x)) return("baking sheet")
+  if (grepl("barbecue utensils", x)) return("bbq utensils")
+  if (grepl("hot water kettle", x)) return("kettle")
+  if (grepl("freezer", x)) return("freezer")
+  if (grepl("cooking basics", x)) return("cooking basics")
+  if (grepl("dishes and silverware", x)) return("dishes and silverware")
+  if (grepl("dining table", x)) return("dining table")
+  if (grepl("wine glasses", x)) return("wine glasses")
+  if (grepl("breakfast", x)) return("breakfast")
+  if (grepl("trash compactor", x)) return("trash compactor")
+
+  if (grepl("bathtub|bidet", x)) return("bathtub/bidet")
+  if (grepl("hair dryer", x)) return("hair dryer")
+  if (grepl("bed linens", x)) return("bed linens")
+  if (grepl("extra pillows and blankets", x)) return("extra pillows and blankets")
+  if (grepl("hangers", x)) return("hangers")
+  if (grepl("closet|wardrobe|clothing storage", x)) return("clothing storage")
+  if (grepl("room darkening shades|room darkening", x)) return("room darkening shades")
+  if (grepl("mosquito net", x)) return("mosquito net")
+  if (grepl("lock on bedroom door", x)) return("lock on bedroom door")
+  if (grepl("private living room", x)) return("private living room")
+  if (grepl("drying rack for clothing", x)) return("drying rack for clothing")
+  if (grepl("hot water", x)) return("hot water")
+
+  if (grepl("crib|travel crib|pack n play", x)) return("crib")
+  if (grepl("high chair|booster seat|clamp on table seat", x)) return("high chair")
+  if (grepl("baby bath", x)) return("baby bath")
+  if (grepl("baby monitor", x)) return("baby monitor")
+  if (grepl("changing table", x)) return("changing table")
+  if (grepl("children s books and toys|books and reading material", x)) return("books and toys")
+  if (grepl("children s bikes|bikes", x)) return("bikes")
+  if (grepl("children s dinnerware", x)) return("children’s dinnerware")
+  if (grepl("baby safety gates|outlet covers|table corner guards|window guards|fireplace guards", x)) return("child safety features")
+  if (grepl("children s playroom|outdoor playground", x)) return("play area")
+  if (grepl("babysitter recommendations", x)) return("babysitter recommendations")
+
+  if (grepl("air conditioning|central air conditioning|portable air conditioning|window ac unit|ac split type ductless system|ceiling fan|portable fans", x)) return("air conditioning/fan")
+  if (grepl("heating|central heating|radiant heating|portable heater|heating split type ductless system", x)) return("heating")
+  if (grepl("indoor fireplace|fireplace", x)) return("fireplace")
+
+  if (grepl("washer", x)) return("washer")
+  if (grepl("dryer", x)) return("dryer")
+  if (grepl("laundromat nearby", x)) return("laundromat nearby")
+  if (grepl("cleaning products", x)) return("cleaning products")
+  if (grepl("housekeeping|cleaning available during stay", x)) return("housekeeping")
+
+  if (grepl("self check in|lockbox|smart lock|keypad", x)) return("self check-in")
+  if (grepl("private entrance", x)) return("private entrance")
+  if (grepl("elevator", x)) return("elevator")
+  if (grepl("single level home", x)) return("single level home")
+  if (grepl("building staff|host greets you", x)) return("host service")
+  if (grepl("carbon monoxide alarm", x)) return("carbon monoxide alarm")
+  if (grepl("smoke alarm", x)) return("smoke alarm")
+  if (grepl("fire extinguisher", x)) return("fire extinguisher")
+  if (grepl("first aid kit", x)) return("first aid kit")
+  if (grepl("exterior security cameras|noise decibel monitors", x)) return("security device")
+  if (grepl("safe", x)) return("safe")
+
+  if (grepl("patio or balcony|private patio or balcony|shared patio or balcony", x)) return("patio/balcony")
+  if (grepl("outdoor dining area|outdoor furniture|sun loungers|hammock", x)) return("outdoor seating")
+  if (grepl("backyard fully fenced|private backyard fully fenced|shared backyard fully fenced", x)) return("backyard fully fenced")
+  if (grepl("backyard|private backyard|shared backyard", x)) return("backyard")
+  if (grepl("bbq grill", x)) return("bbq grill")
+  if (grepl("outdoor kitchen|private outdoor kitchen|shared outdoor kitchen", x)) return("outdoor kitchen")
+  if (grepl("fire pit", x)) return("fire pit")
+  if (grepl("hot tub", x)) return("hot tub")
+  if (grepl("pool|lap pool", x)) return("pool")
+  if (grepl("sauna", x)) return("sauna")
+  if (grepl("gym|exercise equipment|free weights|stationary bike|rowing|treadmill|workout bench|yoga mat", x)) return("gym/workout equipment")
+  if (grepl("ev charger|tesla only|level 1|level 2", x)) return("ev charger")
+  if (grepl("kayak", x)) return("kayak")
+  if (grepl("boat slip", x)) return("boat slip")
+  if (grepl("bowling alley", x)) return("bowling alley")
+  if (grepl("climbing wall", x)) return("climbing wall")
+  if (grepl("hockey rink", x)) return("hockey rink")
+  if (grepl("mini golf", x)) return("mini golf")
+  if (grepl("outdoor shower", x)) return("outdoor shower")
+  if (grepl("skate ramp", x)) return("skate ramp")
+  if (grepl("ski in ski out", x)) return("ski-in/ski-out")
+
+  if (grepl("beach access", x)) return("beach access")
+  if (grepl("lake access", x)) return("lake access")
+  if (grepl("resort access", x)) return("resort access")
+  if (grepl("view|waterfront", x)) return("view")
+
+  if (grepl("parking|garage|carport|driveway|street parking", x)) return("parking")
+  if (grepl("pets allowed", x)) return("pets allowed")
+  if (grepl("long term stays allowed", x)) return("long term stays allowed")
+  if (grepl("luggage dropoff allowed", x)) return("luggage dropoff allowed")
+  if (grepl("essentials", x)) return("essentials")
+  if (grepl("iron", x)) return("iron")
+  if (grepl("dedicated workspace", x)) return("dedicated workspace")
+  if (grepl("smoking allowed", x)) return("smoking allowed")
+  if (grepl("beach essentials", x)) return("beach essentials")
+
+  remove_patterns <- c(
+    "^c ", "^and ", "^there are ", "^varies", "^varied", "^variety",
+    "^various", "^usually ", "^liquid ", "^generic ", "^organic ",
+    "^eco ", "^premium ", "^private ", "^shared ", "^available ",
+    "^changes", "^different", "^regular", "^standard", "^luxury",
+    "^hotel brand", "^bath amenity", "^one brand", "^for a few days"
+  )
+
+  for (pat in remove_patterns) {
+    if (grepl(pat, x)) return(NA_character_)
+  }
+
+  x <- trimws(x)
+  if (x == "") return(NA_character_)
+
+  return(x)
+}
+
+
+Jersey_data$amenities <- lapply(Jersey_data$amenities, function(x) {
+  x <- sapply(x, clean_amenity)
+  x <- x[!is.na(x) & x != ""]
+  unique(x)
+})
+
+remove_amenities <- c(
+  "100 vegan and cruelty free",
+  "1 day a week",
+  "2 days a week",
+  "3 days a week",
+  "every day",
+  "monday to saturday",
+  "thursday",
+  "tuesday",
+  "wednesday"
+)
+
+Jersey_data$amenities <- lapply(Jersey_data$amenities, function(x) {
+  x <- x[!x %in% remove_amenities]
+  unique(x)
+})
+
+
+jersey_amenity_counts <- sort(table(unlist(Jersey_data$amenities)), decreasing = TRUE)
+print(jersey_amenity_counts)
+
+# save cleaned list before count filtering
+jersey_all_cleaned_amenities <- sort(unique(unlist(Jersey_data$amenities)))
+write.csv(
+  data.frame(Amenity = jersey_all_cleaned_amenities),
+  "jersey_cleaned_amenities_before_count_filter.csv",
+  row.names = FALSE
+)
+
+
+
+min_count <- 30
+
+keep_rare <- c(
+  "game console",
+  "piano",
+  "smoking allowed",
+  "changing table",
+  "dvd player",
+  "lake access",
+  "baby monitor",
+  "movie theater",
+  "record player",
+  "resort access",
+  "theme room",
+  "backyard fully fenced",
+  "hockey rink",
+  "bowling alley",
+  "outdoor shower",
+  "sauna",
+  "boat slip",
+  "kayak",
+  "climbing wall",
+  "skate ramp"
+)
+
+keep_amenities <- union(
+  names(jersey_amenity_counts[jersey_amenity_counts >= min_count]),
+  keep_rare
+)
+
+Jersey_data$amenities_filtered <- lapply(Jersey_data$amenities, function(x) {
+  x[x %in% keep_amenities]
+})
+
+jersey_final_amenities <- sort(unique(unlist(Jersey_data$amenities_filtered)))
+
+cat("Final number of Jersey amenities:", length(jersey_final_amenities), "\n\n")
+print(jersey_final_amenities)
+
+jersey_final_counts <- sort(table(unlist(Jersey_data$amenities_filtered)), decreasing = TRUE)
+print(jersey_final_counts)
+
+Jersey_data
+
+
+```
+
+
+```{r}
+boston_stats <- c(
+  mean = mean(new_data$price),
+  median = median(new_data$price),
+  sd = sd(new_data$price),
+  min = min(new_data$price),
+  max = max(new_data$price),
+  Q1 = quantile(new_data$price, 0.25),
+  Q3 = quantile(new_data$price, 0.75)
+)
+
+jersey_stats <- c(
+  mean = mean(Jersey_data$price),
+  median = median(Jersey_data$price),
+  sd = sd(Jersey_data$price),
+  min = min(Jersey_data$price),
+  max = max(Jersey_data$price),
+  Q1 = quantile(Jersey_data$price, 0.25),
+  Q3 = quantile(Jersey_data$price, 0.75)
+)
+stats_table <- data.frame(
+  Statistic = c("Mean", "Median", "SD", "Min", "Max", "Q1", "Q3"),
+  Boston = boston_stats,
+  Jersey_City = jersey_stats
+)
+cat("\nSummary Statistics of Airbnb Prices in Boston and Jersey City\n\n")
+kable(stats_table, digits = 2, align = "c")
+
+
+ggplot() +
+  geom_boxplot(data = new_data, aes(x = "Boston", y = price), fill = "skyblue") +
+  geom_boxplot(data = Jersey_data, aes(x = "Jersey City", y = price), fill = "orange") +
+  theme_minimal()
+
+par(mfrow = c(1, 2))  
+
+hist(new_data$accommodates,
+     breaks = seq(min(new_data$accommodates)-0.5, max(new_data$accommodates)+0.5, by=1),
+     main = "Boston Airbnb Listings",
+     xlab = "Number of Guests Accommodated",
+     ylab = "Count of Listings",
+     col = "skyblue",
+     border = "black")
+
+hist(Jersey_data$accommodates,
+     breaks = seq(min(Jersey_data$accommodates)-0.5, max(Jersey_data$accommodates)+0.5, by=1),
+     main = "Jersey City Airbnb Listings",
+     xlab = "Number of Guests Accommodated",
+     ylab = "Count of Listings",
+     col = "orange",
+     border = "black")
+
+par(mfrow = c(1, 1))
+
+par(mfrow = c(1, 2))
+
+boxplot(new_data$price_per_guest,
+        main = "Boston Airbnb Price per Guest",
+        ylab = "Price per Guest ($)",
+        col = "skyblue",
+        border = "black")
+
+boxplot(Jersey_data$price_per_guest,
+        main = "Jersey City Airbnb Price per Guest",
+        ylab = "Price per Guest ($)",
+        col = "orange",
+        border = "black")
+
+par(mfrow = c(1, 1))
+
+boston_stats <- c(
+  mean = mean(new_data$price_per_guest),
+  median = median(new_data$price_per_guest),
+  sd = sd(new_data$price_per_guest),
+  min = min(new_data$price_per_guest),
+  max = max(new_data$price_per_guest),
+  Q1 = quantile(new_data$price_per_guest, 0.25),
+  Q3 = quantile(new_data$price_per_guest, 0.75)
+)
+
+jersey_stats <- c(
+  mean = mean(Jersey_data$price_per_guest),
+  median = median(Jersey_data$price_per_guest),
+  sd = sd(Jersey_data$price_per_guest),
+  min = min(Jersey_data$price_per_guest),
+  max = max(Jersey_data$price_per_guest),
+  Q1 = quantile(Jersey_data$price_per_guest, 0.25),
+  Q3 = quantile(Jersey_data$price_per_guest, 0.75)
+)
+
+stats_table <- data.frame(
+  Statistic = c("Mean", "Median", "SD", "Min", "Max", "Q1", "Q3"),
+  Boston = boston_stats,
+  Jersey_City = jersey_stats
+)
+
+cat("\nSummary Statistics of Airbnb Price per Guest in Boston and Jersey City\n\n")
+kable(stats_table, digits = 2, align = "c")
+
+boston_counts <- new_data %>%
+  count(neighbourhood_cleansed, name = "count")
+
+jersey_counts <- Jersey_data %>%
+  count(neighbourhood_cleansed, name = "count") %>%
+  mutate(neighbourhood_wrapped = str_wrap(neighbourhood_cleansed, width = 15))  # wrap long names
+
+ggplot(jersey_counts, aes(x = reorder(neighbourhood_wrapped, count), y = count)) +
+  geom_bar(stat = "identity", fill = "orange") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Number of Airbnb Listings by Neighborhood in Jersey City",
+       x = "Neighborhood",
+       y = "Number of Listings") +
+  theme(axis.text.y = element_text(size = 9))  # smaller text for readability
+
+ggplot(boston_counts, aes(x = reorder(neighbourhood_cleansed, count), y = count)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Number of Airbnb Listings by Neighborhood in Boston",
+       x = "Neighborhood",
+       y = "Number of Listings")
+
+```
+
+```{r}
+new_data$city <- "Boston"
+Jersey_data$city <- "Jersey City"
+combined_data <- bind_rows(new_data, Jersey_data)
+t.test(price_per_guest ~ city, data = combined_data)
+
+```
+
+```{r}
+create_indicator <- function(data, amenity_name) {
+  data[[amenity_name]] <- sapply(data$amenities, function(x) as.integer(amenity_name %in% x))
+  return(data)
+}
+
+amenity_list <- c("tv", "dishes and silverware", "gym/workout equipment", 
+                  "parking", "cooking basics", "pets allowed", 
+                  "heating", "patio/balcony", "hot water", "air conditioning/fan")
+
+for (a in amenity_list) {
+  new_data <- create_indicator(new_data, a)
+}
+
+head(new_data[, c("amenities", amenity_list)])
+```
+```{r}
+create_indicator <- function(data, amenity_name) {
+  data[[amenity_name]] <- sapply(data$amenities, function(x) as.integer(amenity_name %in% x))
+  return(data)
+}
+
+amenity_list <- c("tv", "dishes and silverware", "gym/workout equipment", 
+                  "parking", "cooking basics", "pets allowed", 
+                  "heating", "patio/balcony", "hot water", "air conditioning/fan")
+
+for (a in amenity_list) {
+  Jersey_data <- create_indicator(Jersey_data, a)
+}
+head(Jersey_data[, c("amenities", amenity_list)])
+
+```
+```{r}
+amenity_list <- c("tv", "dishes and silverware", "gym/workout equipment", 
+                  "parking", "cooking basics", "pets allowed", 
+                  "heating", "patio/balcony", "hot water", "air conditioning/fan")
+
+t_test_results <- data.frame(
+  amenity = character(),
+  t_stat = numeric(),
+  df = numeric(),
+  p_value = numeric(),
+  mean_with = numeric(),
+  mean_without = numeric(),
+  stringsAsFactors = FALSE
+)
+
+for (amenity in amenity_list) {
+  
+  test <- t.test(price_per_guest ~ new_data[[amenity]], data = new_data)
+  
+  t_test_results <- rbind(t_test_results, data.frame(
+    amenity = amenity,
+    t_stat = test$statistic,
+    df = test$parameter,
+    p_value = test$p.value,
+    mean_with = mean(new_data$price_per_guest[new_data[[amenity]] == 1]),
+    mean_without = mean(new_data$price_per_guest[new_data[[amenity]] == 0])
+  ))
+}
+
+print(t_test_results)
+```
+```{r}
+
+amenity_list <- c("tv", "dishes and silverware", "gym/workout equipment", 
+                  "parking", "cooking basics", "pets allowed", 
+                  "heating", "patio balcony", "hot water", "air conditioning/fan")
+
+t_test_results <- data.frame(
+  amenity = character(),
+  t_stat = numeric(),
+  df = numeric(),
+  p_value = numeric(),
+  mean_with = numeric(),
+  mean_without = numeric(),
+  stringsAsFactors = FALSE
+)
+for (amenity in amenity_list) {
+  
+  test <- t.test(price_per_guest ~ Jersey_data[[amenity]], data = Jersey_data)
+  
+  t_test_results <- rbind(t_test_results, data.frame(
+    amenity = amenity,
+    t_stat = test$statistic,
+    df = test$parameter,
+    p_value = test$p.value,
+    mean_with = mean(Jersey_data$price_per_guest[Jersey_data[[amenity]] == 1]),
+    mean_without = mean(Jersey_data$price_per_guest[Jersey_data[[amenity]] == 0])
+  ))
+}
+
+print(t_test_results)
+
+
+```
+```{r}
+library(ggplot2)
+library(reshape2)  
+
+amenities <- c("accommodates", "num_amenities", "tv", "dishes and silverware", 
+               "gym/workout equipment", "parking", "cooking basics", "pets allowed", 
+               "heating", "patio/balcony", "hot water", "air conditioning/fan")
+
+cor_boston <- sapply(amenities, function(x) cor(new_data$price_per_guest, new_data[[x]], use="complete.obs"))
+cor_jersey <- sapply(amenities, function(x) cor(Jersey_data$price_per_guest, Jersey_data[[x]], use="complete.obs"))
+
+cor_df <- data.frame(
+  Variable = amenities,
+  Boston = cor_boston,
+  JerseyCity = cor_jersey
+)
+
+cor_melt <- melt(cor_df, id.vars = "Variable", variable.name = "City", value.name = "Correlation")
+
+ggplot(cor_melt, aes(x = City, y = Variable, fill = Correlation)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0) +
+  geom_text(aes(label = round(Correlation, 2)), color = "black") +
+  labs(title = "Correlation of Amenities with Price per Guest", x = "", y = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+model5_log <- lm(log(price_per_guest) ~ city + accommodates + num_amenities +
+                 tv + `gym/workout equipment` + parking + 
+                 `pets allowed` + `air conditioning/fan` + `dishes and silverware` + `cooking basics` +
+                 heating + `patio/balcony` + `hot water`, data = combined_data)
+summary(model5_log)
+models <- list(
+  model5_log
+)
+
+model_names <- c(
+  "Model Combined"
+)
+
+par(mfrow=c(3,4), mar=c(4,4,2,1))
+
+for (i in 1:length(models)) {
+
+  plot(
+    models[[i]]$fitted.values, 
+    residuals(models[[i]]), 
+    main = paste("Residuals vs Fitted -", model_names[i]),
+    xlab = "Fitted values",
+    ylab = "Residuals",
+    pch = 19, col = "steelblue"
+  )
+  abline(h=0, col="red", lwd=2)
+  
+  qqnorm(residuals(models[[i]]), main = paste("QQ Plot -", model_names[i]))
+  qqline(residuals(models[[i]]), col="blue", lwd=2)
+}
+
+coef_data <- broom::tidy(model5)  # or any model
+
+ggplot(coef_data, aes(x = reorder(term, estimate), y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = estimate - 1.96*std.error,
+                    ymax = estimate + 1.96*std.error), width = 0.2) +
+  coord_flip() +
+  labs(title = "Regression Coefficients for Airbnb Price per Guest",
+       x = "Variables", y = "Estimated Effect") +
+  theme_minimal()
+library(car)
+
+vif(model5_log)
+
+model5 <- lm(price_per_guest ~ city + accommodates + num_amenities +
+               tv + `gym/workout equipment` + parking + 
+               `pets allowed` + `air conditioning/fan` + `dishes and silverware` + 
+               `cooking basics` + heating + `patio/balcony` + `hot water`, 
+             data = combined_data)
+models_raw <- list(
+  model5
+)
+
+model_names_raw <- c(
+  "Model Combined (Raw)"
+)
+par(mfrow=c(3,2), mar=c(4,4,2,1))
+
+for (i in 1:length(models_raw)) {
+  plot(
+    models_raw[[i]]$fitted.values,
+    residuals(models_raw[[i]]),
+    main = paste("Residuals vs Fitted -", model_names_raw[i]),
+    xlab = "Fitted values",
+    ylab = "Residuals",
+    pch = 19, col = "darkorange"
+  )
+  abline(h=0, col="red", lwd=2)
+  
+  qqnorm(residuals(models_raw[[i]]), main = paste("QQ Plot -", model_names_raw[i]))
+  qqline(residuals(models_raw[[i]]), col="blue", lwd=2)
+}
+ggplot(combined_data, aes(x = model5_log$fitted.values, y = log(price_per_guest))) +
+  geom_point(alpha = 0.4, color = "steelblue") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(
+    x = "Predicted log(Price per Guest)",
+    y = "Actual log(Price per Guest)",
+    title = "Predicted vs Actual Log-Transformed Prices"
+  ) +
+  theme_minimal()
+```
+```{r}
+small_listings <- combined_data[combined_data$accommodates <= 2, ]
+
+small_listings$under_100 <- ifelse(small_listings$price_per_guest < 100, 1, 0)
+
+logit_under_100 <- glm(
+  under_100 ~ city + accommodates + num_amenities +
+    tv + `gym/workout equipment` + parking + `pets allowed` + 
+    `air conditioning/fan` + `dishes and silverware` + `cooking basics` +
+    heating + `patio/balcony` + `hot water`,
+  data = small_listings,
+  family = binomial
+)
+
+summary(logit_under_100)
+
+null_model <- glm(under_100 ~ 1, family = binomial, data = small_listings)
+anova(null_model, logit_under_100, test = "Chisq")
+```
+```{r}
+model5_interaction <- lm(log(price_per_guest) ~ 
+  city * (tv + `gym/workout equipment` + parking + 
+          `pets allowed` + `air conditioning/fan`+
+  `dishes and silverware` + `cooking basics` +
+  heating + `patio/balcony` + `hot water`) +
+  accommodates + num_amenities,
+  data = combined_data)
+
+summary(model5_interaction)
+
+
+
+model5_interaction2 <- lm(log(price_per_guest) ~ 
+  accommodates * num_amenities +
+  city * (tv + `gym/workout equipment` + parking + 
+          `pets allowed` + `air conditioning/fan`+ `dishes and silverware` + `cooking basics` +
+  heating + `patio/balcony` + `hot water`) ,
+  data = combined_data)
+
+summary(model5_interaction2)
+
+
+# Compare baseline vs interaction
+anova(model5_log, model5_interaction)
+
+# Compare interaction vs more complex interaction
+anova(model5_interaction, model5_interaction2)
+```
+
+
+
+
+
+```
